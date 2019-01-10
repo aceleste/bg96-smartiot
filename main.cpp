@@ -25,10 +25,10 @@
 
  */
 
-#define MQTTCLIENT_QOS1 0
+#define MQTTCLIENT_QOS1 1
 #define MQTTCLIENT_QOS2 0
 
-#include "easy-connect.h"
+#include "BG96Interface.h"
 #include "MQTTNetwork.h"
 #include "MQTTmbed.h"
 #include "MQTTClient.h"
@@ -44,8 +44,8 @@
 #define TIME_JWT_EXP      (60*60*24)  // 24 hours (MAX)
 
 // LED on/off - This could be different among boards
-#define LED_ON  0    
-#define LED_OFF 1
+//#define LED_ON  0    
+//#define LED_OFF 1
 
 #include <string>
 
@@ -62,28 +62,35 @@ char messageBuffer[MESSAGE_BUFFER_SIZE];
 void handleMqttMessage(MQTT::MessageData& md);
 void handleButtonRise();
 
-
 int main(int argc, char* argv[])
 {
     mbed_trace_init();
     
     const float version = 0.1;
-
+    BG96Interface* bg96 = new BG96Interface();
     NetworkInterface* network = NULL;
 
-    DigitalOut led_red(LED_RED, LED_OFF);
-    DigitalOut led_green(LED_GREEN, LED_OFF);
-    DigitalOut led_blue(LED_BLUE, LED_OFF);
+    // DigitalOut led_red(LED_RED, LED_OFF);
+    // DigitalOut led_green(LED_GREEN, LED_OFF);
+    // DigitalOut led_blue(LED_BLUE, LED_OFF);
 
     printf("Mbed to Azure IoT Hub: version is %.2f\r\n", version);
     printf("\r\n");
 
-    // Turns on green LED to indicate processing initialization process
-    led_green = LED_ON;
+ //   // Turns on green LED to indicate processing initialization process
+    // led_green = LED_ON;
 
     printf("Opening network interface...\r\n");
     {
-        network = easy_connect(true);    // If true, prints out connection details.
+        if (bg96 == NULL) {
+            printf("Unable to instantiate the BG96 Interface.\r\n");
+            return -1;
+        }
+        if ( !bg96->connect()) {
+            printf("Unable to connect.\r\n");
+            return -1;
+        };
+        network = (NetworkInterface*) bg96;    // If true, prints out connection details.
         if (!network) {
             printf("Unable to open network interface.\r\n");
             return -1;
@@ -93,20 +100,37 @@ int main(int argc, char* argv[])
     printf("\r\n");
 
     // sync the real time clock (RTC)
-    NTPClient ntp(network);
-    ntp.set_server("time.google.com", 123);
-    time_t now = ntp.get_timestamp();
-    set_time(now);
-    printf("Time is now %s", ctime(&now));
+    // This is now included in BG96Interface
+    // NTPClient ntp(network);
+    // ntp.set_server("time.google.com", 123);
+    // time_t now = ntp.get_timestamp();
+    // set_time(now);
+    // printf("Time is now %s", ctime(&now));
 
     /* Establish a network connection. */
     MQTTNetwork* mqttNetwork = NULL;
     printf("Connecting to host %s:%d ...\r\n", MQTT_SERVER_HOST_NAME, MQTT_SERVER_PORT);
     {
+#if APP_USES_BG96_TLS_SOCKET
+        printf("Application uses the bg96 TLS socket.\r\n");
+        mqttNetwork = new MQTTNetwork(bg96);
+#else
+        printf("Application uses the mbed TLS socket.\r\n");
         mqttNetwork = new MQTTNetwork(network);
-        int rc = mqttNetwork->connect(MQTT_SERVER_HOST_NAME, MQTT_SERVER_PORT, SSL_CA_PEM,
-                SSL_CLIENT_CERT_PEM, SSL_CLIENT_PRIVATE_KEY_PEM);
+#endif
+        int rc = mqttNetwork->connect(MQTT_SERVER_HOST_NAME, MQTT_SERVER_PORT, SSL_CA_PEM, NULL, NULL);//SSL_CLIENT_CERT_PEM, SSL_CLIENT_PRIVATE_KEY_PEM);
+        // if (mqttNetwork->is_connected()) { 
+        //     wait(3);
+        //     printf("TLS Socket is connected.\r\n"); 
+        // } else {
+        //     wait(3);
+        //     printf("TLS Socket is not connected.\r\n");
+        // }
         if (rc != MQTT::SUCCESS){
+#if APP_USES_BG96_TLS_SOCKET
+            printf("TLS ERROR (%d)\r\n", rc);
+            return -1;
+#else
             const int MAX_TLS_ERROR_CODE = -0x1000;
             // Network error
             if((MAX_TLS_ERROR_CODE < rc) && (rc < 0)) {
@@ -121,6 +145,7 @@ int main(int argc, char* argv[])
                 printf("TLS ERROR (%d) : %s\r\n", rc, buf);
             }
             return -1;
+#endif
         }
     }
     printf("Connection established.\r\n");
@@ -137,7 +162,7 @@ int main(int argc, char* argv[])
         data.MQTTVersion = 4; // 3 = 3.1 4 = 3.1.1
         data.clientID.cstring = (char*)DEVICE_ID;
         data.username.cstring = (char*)username.c_str();
-        data.password.cstring = (char *)"ignored";
+        data.password.cstring = (char *)SAS_TOKEN;
 
         mqttClient = new MQTT::Client<MQTTNetwork, Countdown, MQTT_MAX_PACKET_SIZE, MQTT_MAX_CONNECTIONS>(*mqttNetwork);
         int rc = mqttClient->connect(data);
@@ -150,7 +175,7 @@ int main(int argc, char* argv[])
     printf("\r\n");
 
     // Network initialization done. Turn off the green LED
-    led_green = LED_OFF;
+    //led_green = LED_OFF;
 
 
     // Generates topic names from user's setting in MQTT_server_setting.h
@@ -202,7 +227,7 @@ int main(int argc, char* argv[])
             static unsigned int count = 0;
 
             // When sending a message, blue LED lights.
-            led_blue = LED_ON;
+            //led_blue = LED_ON;
 
             MQTT::Message message;
             message.retained = false;
@@ -226,7 +251,7 @@ int main(int argc, char* argv[])
 
             count++;
 
-            led_blue = LED_OFF;
+            //led_blue = LED_OFF;
         }
     }
 
@@ -251,7 +276,7 @@ int main(int argc, char* argv[])
     }
 
     // Turn on the red LED when the program is done.
-    led_red = LED_ON;
+    //led_red = LED_ON;
 }
 
 /*

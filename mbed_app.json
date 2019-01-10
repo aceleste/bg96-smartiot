@@ -1,5 +1,7 @@
 {
     "macros": [
+        "DEFAULT_APN=\"m2m.tele2.com\"",
+        "APP_USES_BG96_TLS_SOCKET=1"
     ],
     "config": {
         "main-stack-size": {
@@ -39,7 +41,7 @@
             "mbed-trace.enable": 0,
             "tls-socket.debug-level": 0,
             "platform.stdio-baud-rate": 115200,
-            "platform.stdio-convert-newlines": false
+            "platform.stdio-convert-newlines": true
            },
         "RZ_A1H": {
             "target.macros_add": ["MBEDTLS_TEST_NULL_ENTROPY", "MBEDTLS_NO_DEFAULT_ENTROPY_SOURCES"]

@@ -1,9 +1,12 @@
 #ifndef __MQTT_SERVER_SETTING_H__
 #define __MQTT_SERVER_SETTING_H__
 
-const char* DEVICE_ID = "<< REPLACE WITH YOUR DEVICE ID >>";
+const char* DEVICE_ID = "Test-Device-1";
 
-const char* MQTT_SERVER_HOST_NAME = "<< REPLACE WITH YOUR HOST NAME >>";
+const char* SAS_TOKEN = "SharedAccessSignature sr=BTL-IOT-Hub.azure-devices.net%2Fdevices%2FTest-Device-1&sig=fbXuNNuWrr7B1AKQPDbKAqF%2FUhLW4miV4%2Fks5f5DZWQ%3D&se=1546975302";
+
+const char* MQTT_SERVER_HOST_NAME = "BTL-IOT-Hub.azure-devices.net";
+
 const int MQTT_SERVER_PORT = 8883;
 
 /*
@@ -118,7 +121,7 @@ const char* SSL_CA_PEM =
 "OtzCWfHjXEa7ZywCRuoeSKbmW9m1vFGikpbbqsY3Iqb+zCB0oy2pLmvLwIIRIbWT\r\n"
 "ee5Ehr7XHuQe+w==\r\n"
 "-----END CERTIFICATE-----\r\n"
- 
+
 ;
 
 
