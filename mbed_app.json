@@ -1,7 +1,9 @@
 {
     "macros": [
         "DEFAULT_APN=\"m2m.tele2.com\"",
-        "APP_USES_BG96_TLS_SOCKET=1"
+        "DEFAULT_PDP=1",
+        "APP_USES_BG96_TLS_SOCKET=1",
+        "MQTT_DEBUG=1"
     ],
     "config": {
         "main-stack-size": {

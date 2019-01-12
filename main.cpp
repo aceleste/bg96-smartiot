@@ -1,300 +1,49 @@
-/*******************************************************************************
- * Copyright (c) 2014, 2015 IBM Corp.
- *
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * and Eclipse Distribution License v1.0 which accompany this distribution.
- *
- * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
- * and the Eclipse Distribution License is available at
- *   http://www.eclipse.org/org/documents/edl-v10.php.
- *
- * Contributors:
- *    Ian Craggs - initial API and implementation and/or initial documentation
- *    Ian Craggs - make sure QoS2 processing works, and add device headers
- *******************************************************************************/
-
- /**
-  This is a sample program to illustrate the use of the MQTT Client library
-  on the mbed platform.  The Client class requires two classes which mediate
-  access to system interfaces for networking and timing.  As long as these two
-  classes provide the required public programming interfaces, it does not matter
-  what facilities they use underneath. In this program, they use the mbed
-  system libraries.
-
- */
-
-#define MQTTCLIENT_QOS1 1
-#define MQTTCLIENT_QOS2 0
-
 #include "BG96Interface.h"
-#include "MQTTNetwork.h"
-#include "MQTTmbed.h"
-#include "MQTTClient.h"
 #include "MQTT_server_setting.h"
 #include "mbed-trace/mbed_trace.h"
 #include "mbed_events.h"
 #include "NTPClient.h"
 #include "mbedtls/error.h"
+#include "mosquitto_cert.h"
 
-#define MQTT_MAX_CONNECTIONS     5
-#define MQTT_MAX_PACKET_SIZE  1024
-
-#define TIME_JWT_EXP      (60*60*24)  // 24 hours (MAX)
-
-// LED on/off - This could be different among boards
-//#define LED_ON  0    
-//#define LED_OFF 1
-
-#include <string>
-
-/* Flag to be set when a message needs to be published, i.e. BUTTON is pushed. */
-static volatile bool isPublish = false;
-/* Flag to be set when received a message from the server. */
-static volatile bool isMessageArrived = false;
-/* Buffer size for a receiving message. */
-const int MESSAGE_BUFFER_SIZE = 1024;
-/* Buffer for a receiving message. */
-char messageBuffer[MESSAGE_BUFFER_SIZE];
-
-// Function prototypes
-void handleMqttMessage(MQTT::MessageData& md);
-void handleButtonRise();
-
-int main(int argc, char* argv[])
+void main(void)
 {
-    mbed_trace_init();
-    
-    const float version = 0.1;
-    BG96Interface* bg96 = new BG96Interface();
-    NetworkInterface* network = NULL;
+    BG96Interface* bg96;
+    BG96MQTTClient* mqtt;
 
-    // DigitalOut led_red(LED_RED, LED_OFF);
-    // DigitalOut led_green(LED_GREEN, LED_OFF);
-    // DigitalOut led_blue(LED_BLUE, LED_OFF);
+    bg96 = new BG96Interface();
 
-    printf("Mbed to Azure IoT Hub: version is %.2f\r\n", version);
-    printf("\r\n");
+    if (bg96 == null) return -1;
 
- //   // Turns on green LED to indicate processing initialization process
-    // led_green = LED_ON;
+    BG96_PDP_Ctx pdp_ctx;
+    pdp_ctx.pdp_id = DEFAULT_PDP; 
+    sprintf(pdp_ctx.apn, "%s", DEFAULT_APN);
+    pdp_ctx.username = NULL;
+    pdp_ctx.password = NULL;
+    rc = bg96->configure_pdp_context(&pdp_ctx);
 
-    printf("Opening network interface...\r\n");
-    {
-        if (bg96 == NULL) {
-            printf("Unable to instantiate the BG96 Interface.\r\n");
-            return -1;
-        }
-        if ( !bg96->connect()) {
-            printf("Unable to connect.\r\n");
-            return -1;
-        };
-        network = (NetworkInterface*) bg96;    // If true, prints out connection details.
-        if (!network) {
-            printf("Unable to open network interface.\r\n");
-            return -1;
-        }
+    if (rc < 0) {
+        printf("Error when configuring pdp context %d.\r\n", pdp_ctx.pdp_id);
+        return -1;
     }
-    printf("Network interface opened successfully.\r\n");
-    printf("\r\n");
+    printf("Succesfully configured pdp context %d.\r\n", pdp_ctx.pdp_id);
 
-    // sync the real time clock (RTC)
-    // This is now included in BG96Interface
-    // NTPClient ntp(network);
-    // ntp.set_server("time.google.com", 123);
-    // time_t now = ntp.get_timestamp();
-    // set_time(now);
-    // printf("Time is now %s", ctime(&now));
+    mqtt = getBG96MQTTClient(NULL);
 
-    /* Establish a network connection. */
-    MQTTNetwork* mqttNetwork = NULL;
-    printf("Connecting to host %s:%d ...\r\n", MQTT_SERVER_HOST_NAME, MQTT_SERVER_PORT);
-    {
-#if APP_USES_BG96_TLS_SOCKET
-        printf("Application uses the bg96 TLS socket.\r\n");
-        mqttNetwork = new MQTTNetwork(bg96);
-#else
-        printf("Application uses the mbed TLS socket.\r\n");
-        mqttNetwork = new MQTTNetwork(network);
-#endif
-        int rc = mqttNetwork->connect(MQTT_SERVER_HOST_NAME, MQTT_SERVER_PORT, SSL_CA_PEM, NULL, NULL);//SSL_CLIENT_CERT_PEM, SSL_CLIENT_PRIVATE_KEY_PEM);
-        // if (mqttNetwork->is_connected()) { 
-        //     wait(3);
-        //     printf("TLS Socket is connected.\r\n"); 
-        // } else {
-        //     wait(3);
-        //     printf("TLS Socket is not connected.\r\n");
-        // }
-        if (rc != MQTT::SUCCESS){
-#if APP_USES_BG96_TLS_SOCKET
-            printf("TLS ERROR (%d)\r\n", rc);
-            return -1;
-#else
-            const int MAX_TLS_ERROR_CODE = -0x1000;
-            // Network error
-            if((MAX_TLS_ERROR_CODE < rc) && (rc < 0)) {
-                // TODO: implement converting an error code into message.
-                printf("ERROR from MQTTNetwork connect is %d.", rc);
-            }
-            // TLS error - mbedTLS error codes starts from -0x1000 to -0x8000.
-            if(rc <= MAX_TLS_ERROR_CODE) {
-                const int buf_size = 256;
-                char *buf = new char[buf_size];
-                mbedtls_strerror(rc, buf, buf_size);
-                printf("TLS ERROR (%d) : %s\r\n", rc, buf);
-            }
-            return -1;
-#endif
-        }
-    }
-    printf("Connection established.\r\n");
-    printf("\r\n");
+    MQTTClientOptions mqtt_options = BG96MQTTClientOptions_Initializer;
+    mqtt_options.will_qos       = 1;
+    mqtt_options.cleansession   = 0;
+    mqtt_options.sslenable      = 1;
 
-    // Generate username from host name and client id.
-    std::string username = std::string(MQTT_SERVER_HOST_NAME) + "/" + DEVICE_ID + "/api-version=2016-11-14";
+    rc = mqtt->configure_mqtt(mqtt_options);
 
-    /* Establish a MQTT connection. */
-    MQTT::Client<MQTTNetwork, Countdown, MQTT_MAX_PACKET_SIZE, MQTT_MAX_CONNECTIONS>* mqttClient = NULL;
-    printf("MQTT client is connecting to the service ...\r\n");
-    {
-        MQTTPacket_connectData data = MQTTPacket_connectData_initializer;
-        data.MQTTVersion = 4; // 3 = 3.1 4 = 3.1.1
-        data.clientID.cstring = (char*)DEVICE_ID;
-        data.username.cstring = (char*)username.c_str();
-        data.password.cstring = (char *)SAS_TOKEN;
-
-        mqttClient = new MQTT::Client<MQTTNetwork, Countdown, MQTT_MAX_PACKET_SIZE, MQTT_MAX_CONNECTIONS>(*mqttNetwork);
-        int rc = mqttClient->connect(data);
-        if (rc != MQTT::SUCCESS) {
-            printf("ERROR: rc from MQTT connect is %d\r\n", rc);
-            return -1;
-        }
-    }
-    printf("Client connected.\r\n");
-    printf("\r\n");
-
-    // Network initialization done. Turn off the green LED
-    //led_green = LED_OFF;
-
-
-    // Generates topic names from user's setting in MQTT_server_setting.h
-    //devices/{device_id}/messages/events/
-    std::string mqtt_topic_pub = 
-            std::string("devices/") + DEVICE_ID + "/messages/events/";
-    std::string mqtt_topic_sub =
-            std::string("devices/") + DEVICE_ID + "/messages/devicebound/#";
-
-    /* Subscribe a topic. */
-    bool isSubscribed = false;
-    printf("Client is trying to subscribe a topic \"%s\".\r\n", mqtt_topic_sub.c_str());
-    {
-        int rc = mqttClient->subscribe(mqtt_topic_sub.c_str(), MQTT::QOS0, handleMqttMessage);
-        if (rc != MQTT::SUCCESS) {
-            printf("ERROR: rc from MQTT subscribe is %d\r\n", rc);
-            return -1;
-        }
-        isSubscribed = true;
-    }
-    printf("Client has subscribed a topic \"%s\".\r\n", mqtt_topic_sub.c_str());
-    printf("\r\n");
-
-    // Enable button 1 for publishing a message.
-    InterruptIn btn1 = InterruptIn(BUTTON1);
-    btn1.rise(handleButtonRise);
-    
-    printf("To send a packet, push the button 1 on your board.\r\n");
-
-    /* Main loop */
-    while(1) {
-        /* Client is disconnected. */
-        if(!mqttClient->isConnected()){        
-            break;
-        }
-        /* Waits a message and handles keepalive. */
-        if(mqttClient->yield(100) != MQTT::SUCCESS) {
-            break;
-        }
-        /* Received a message. */
-        if(isMessageArrived) {
-            isMessageArrived = false;
-            printf("\r\nMessage arrived:\r\n%s\r\n", messageBuffer);
-        }
-        /* Button is pushed - publish a message. */
-        if(isPublish) {
-            isPublish = false;
-            static unsigned int id = 0;
-            static unsigned int count = 0;
-
-            // When sending a message, blue LED lights.
-            //led_blue = LED_ON;
-
-            MQTT::Message message;
-            message.retained = false;
-            message.dup = false;
-
-            const size_t len = 128;
-            char buf[len];
-            snprintf(buf, len, "Message #%d from %s.", count, DEVICE_ID);
-            message.payload = (void*)buf;
-
-            message.qos = MQTT::QOS0;
-            message.id = id++;
-            message.payloadlen = strlen(buf);
-            // Publish a message.
-            printf("\r\nPublishing message to the topic %s:\r\n%s\r\n", mqtt_topic_pub.c_str(), buf);
-            int rc = mqttClient->publish(mqtt_topic_pub.c_str(), message);
-            if(rc != MQTT::SUCCESS) {
-                printf("ERROR: rc from MQTT publish is %d\r\n", rc);
-            }
-            printf("Message published.\r\n");
-
-            count++;
-
-            //led_blue = LED_OFF;
-        }
+    if (rc < 0 ) {
+        printf("Error when configuring MQTT options (%d)\r\n", rc);
+        return -1;
     }
 
-    printf("The client has disconnected.\r\n");
+    printf("Succesfully configured MQTT options");
 
-    if(mqttClient) {
-        if(isSubscribed) {
-            mqttClient->unsubscribe(mqtt_topic_sub.c_str());
-            mqttClient->setMessageHandler(mqtt_topic_sub.c_str(), 0);
-        }
-        if(mqttClient->isConnected()) 
-            mqttClient->disconnect();
-        delete mqttClient;
-    }
-    if(mqttNetwork) {
-        mqttNetwork->disconnect();
-        delete mqttNetwork;
-    }
-    if(network) {
-        network->disconnect();
-        // network is not created by new.
-    }
 
-    // Turn on the red LED when the program is done.
-    //led_red = LED_ON;
-}
 
-/*
- * Callback function called when a message arrived from server.
- */
-void handleMqttMessage(MQTT::MessageData& md)
-{
-    // Copy payload to the buffer.
-    MQTT::Message &message = md.message;
-    memcpy(messageBuffer, message.payload, message.payloadlen);
-    messageBuffer[message.payloadlen] = '\0';
-
-    isMessageArrived = true;
-}
-
-/*
- * Callback function called when button is pushed.
- */
-void handleButtonRise() {
-    isPublish = true;
 }
