@@ -3,7 +3,7 @@
 
 const char* DEVICE_ID = "Test-Device-1";
 
-const char* SAS_TOKEN = "";
+const char* SAS_TOKEN = "SharedAccessSignature sr=BTL-IOT-Hub.azure-devices.net%2Fdevices%2FTest-Device-1&sig=fbXuNNuWrr7B1AKQPDbKAqF%2FUhLW4miV4%2Fks5f5DZWQ%3D&se=1546975302";
 
 const char* MQTT_SERVER_HOST_NAME = "BTL-IOT-Hub.azure-devices.net";
 
