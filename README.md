@@ -1,4 +1,4 @@
-# Mbed-to-Azure-IoT-Hub
-Mbed example program connecting to Azure IoT Hub with MQTT over TLS.
+# bg96test
+example program testing the new features added to the BG96-Driver library (SSL, GNSS, MQTT).
 
-See [Azure IoT Hub from Mbed OS device](https://os.mbed.com/users/coisme/notebook/azure-iot-hub-from-mbed-os-device/) for detail.
+See https://github.com/aceleste/bg96test.git for details.
