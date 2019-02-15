@@ -21,8 +21,7 @@
 #include "azure_c_shared_utility/azure_c_shared_utility/crt_abstractions.h" 
 
 #define INDEFINITE_TIME ((time_t)-1)
-
-unsigned char generated_sas[256];
+unsigned char generated_sig[80];
 
 bool running;
 /* This function looks for every occurences of the token in initial string and replaces each one by replacement */
@@ -102,16 +101,16 @@ int SignAuthPayload(const char* key, const char* stringToSign, unsigned char** o
         else
         {
             *len = BUFFER_length(output_hash);
-            if (*len > 256)
+            if (*len > 80)
             {
-                LogError("Generated SAS token length longer than storage buffer");
-                printf("Generated SAS token length longer than storage buffer\r\n");
+                LogError("Generated signature token length longer than storage buffer");
+                printf("Generated signature token length longer than storage buffer\r\n");
                 result = __FAILURE__;
             }
             else
             {
-                memcpy(generated_sas, BUFFER_u_char(output_hash), *len+1);
-                *output = generated_sas;
+                memcpy(generated_sig, BUFFER_u_char(output_hash), *len+1);
+                *output = generated_sig;
                 result = 0;
             }
             BUFFER_delete(decoded_key);
@@ -162,35 +161,32 @@ size_t generate_sas_token(char *out, const char * resourceUri, const char * key,
                     LogError("Failure constructing url Signature.");
                     printf("Failure constructing url Signature.\r\n");
                 }
-                char * buffer = (char *)malloc(25+STRING_length(encoded_uri)+1+
-                                        5+STRING_length(urlEncodedSignature)+1+
-                                        4+strlen(expiry_token)+1+
-                                        5+strlen(policyName))+1+8;
-                if (buffer == NULL) {
-                    LogError("Failure allocating the buffer for the sas_token.");
-                    printf("Failure allocating the buffer for the sas_token.\r\n");
-                    result = 0;
-                } 
-                sprintf(buffer,"SharedAccessSignature sr=%s&sig=%s&se=%s", STRING_c_str(encoded_uri), 
-                                                                           STRING_c_str(urlEncodedSignature),
-                                                                           expiry_token);
-                if (policyName != NULL) {
-                    strcat(buffer, "&skn=");
-                    strcat(buffer, policyName);
-                }
-                printf("DEBUG: generate_sas_token SAS was generated.\r\n");
-                if (strlen(buffer) > BG96MQTTCLIENT_MAX_SAS_TOKEN_LENGTH) {
-                    printf("DEBUG: generate_sas_token. Generated SAS token is too large.\r\n");
+                // char * buffer = (char *)malloc(25+STRING_length(encoded_uri)+1+
+                //                         5+STRING_length(urlEncodedSignature)+1+
+                //                         4+strlen(expiry_token)+1+
+                //                         5+strlen(policyName))+1+8;
+                // if (buffer == NULL) {
+                //     LogError("Failure allocating the buffer for the sas_token.");
+                //     printf("Failure allocating the buffer for the sas_token.\r\n");
+                //     result = 0;
+                // } 
+                if (34+STRING_length(encoded_uri)+STRING_length(urlEncodedSignature)+strlen(expiry_token)+5+strlen(policyName) > BG96MQTTCLIENT_MAX_SAS_TOKEN_LENGTH-1) {
+                    printf("Error - the generated SAS token is longer than the storage buffer.\r\n");
                     result = 0;
                 } else {
-                    strcpy(out, buffer);
+                    sprintf(out,"SharedAccessSignature sr=%s&sig=%s&se=%s", STRING_c_str(encoded_uri), 
+                                                                                      STRING_c_str(urlEncodedSignature),
+                                                                                      expiry_token);
+                    if (policyName != NULL) {
+                        strcat(out, "&skn=");
+                        strcat(out, policyName);
+                    }
                     result = 1;
-                }
+                }   
                 STRING_delete(urlEncodedSignature);
                 STRING_delete(signature);
             }
             STRING_delete(string_to_sign);
-            //free(data_value);
         }     
     }
     STRING_delete(encoded_uri);
@@ -451,11 +447,24 @@ int main(void)
     }
 
     printf("Successfully started the mqtt task thread.\r\n");
-
-    while(running) {wait(1);}
+    GNSSLoc loc;
+    char publish_loc[80];
+    while(running) {
+        bg96->getGNSSLocation(loc);
+        time_t now = loc.getGNSSTime();
+        sprintf(publish_loc, "{\"device\":\"%s\",\"Latitude\":%.3f,\"Longitude\":%.3f,\"Timestamp\":\"%s\"}", 
+                                DEVICE_ID, loc.getGNSSLatitude(), loc.getGNSSLongitude(), ctime(&now));
+        msgtopublish.qos = 1;
+        msgtopublish.retain = 0;
+        msgtopublish.topic.payload = topictowriteto;
+        msgtopublish.topic.len = strlen(topictowriteto);
+        msgtopublish.msg.len = strlen(publish_loc);
+        msgtopublish.msg.payload = publish_loc;
+        mqtt->publish(&msgtopublish);
+        wait(3);
+    }
 
     printf("Disconnecting from server...\r\n");
-
     mqtt->disconnect();
     printf("Closing network socket...\r\n");
     mqtt->close();
