@@ -3,7 +3,8 @@
         {
             "name": "Mac",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/BG96-Driver/BG96"
             ],
             "defines": [],
             "macFrameworkPath": [

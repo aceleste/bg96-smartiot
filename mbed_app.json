@@ -2,8 +2,10 @@
     "macros": [
         "DEFAULT_APN=\"m2m.tele2.com\"",
         "DEFAULT_PDP=2",
-        "APP_USES_BG96_TLS_SOCKET=1",
-        "MQTT_DEBUG=1"
+        "MQTT_DEBUG=1",
+        "MAX_ACCEPTABLE_CONNECT_DELAY=40",
+        "DEVICE_ID=\"Test-Device-1\"",
+        "DEVICE_KEY = \"YQOz+pLx0VIN5H/84HCEdFs+hyComVUpn3ggzmY6eRc=\""
     ],
     "config": {
         "main-stack-size": {
