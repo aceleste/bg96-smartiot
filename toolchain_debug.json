@@ -1,7 +1,7 @@
 {
     "GCC_ARM": {
         "common": ["-c", "-Wall", "-Wextra", "-Wno-unused-variable", "-Wno-unused-function",
-                   "-Wno-unused-parameter", "-Wno-missing-field-initializers", "-fpermissive",
+                   "-Wno-unused-parameter", "-Wno-missing-field-initializers", 
                    "-fmessage-length=0", "-fno-exceptions", "-fno-builtin",
                    "-ffunction-sections", "-fdata-sections", "-funsigned-char",
                    "-MMD", "-fno-delete-null-pointer-checks", "-Wno-type-limits",
@@ -11,7 +11,7 @@
                   ],
         "asm": ["-x", "assembler-with-cpp"],
         "c": ["-std=c99"],
-        "cxx": ["-std=c++11", "-fno-rtti", "-Wvla"],
+        "cxx": ["-std=c++11", "-fno-rtti", "-Wvla","-fpermissive"],
         "ld": ["-Wl,--gc-sections", "-Wl,--wrap,main", "-Wl,--wrap,_malloc_r",
                "-Wl,--wrap,_free_r", "-Wl,--wrap,_realloc_r", "-Wl,--wrap,_memalign_r",
                "-Wl,--wrap,_calloc_r", "-Wl,--wrap,exit", "-Wl,--wrap,atexit",

@@ -1,9 +1,10 @@
 #include "mbed.h"
+#include "btl_main.h"
 #include <string>
 #include "BTLManager.h"
 #include "ConnectionManager.h"
 #include "LocationManager.h"
-#include "LogManager.h"
+#include "BTLLogManager.h"
 #include "TemperatureManager.h"
 #include "LowPowerTicker.h"
 
@@ -24,38 +25,42 @@ time_t target_temperature_timeout;
 
 LowPowerTicker halfminuteticker;
 LowPowerTicker temperatureticker;
-BG96Interface bg96;
-BTLManager btl_m;
-ConnectionManager conn_m(&bg96);
-LocationManager loc_m(&bg96);
-LogManager log_m(&bg96);
-TemperatureManager temp_m;
+static BG96Interface bg96;
+static ConnectionManager conn_m(&bg96);
+static LocationManager loc_m(&bg96);
+static BTLLogManager log_m(&bg96);
+static TemperatureManager temp_m;
+static BTLManager btl_m(&conn_m,
+                 &temp_m,
+                 &loc_m,
+                 &log_m);
+
 
 void main_task(){
     GNSSLoc current_location;
+    latest_connect_time = time(NULL);
     while(1) {
         while(!gnss_timeout) {
             sleep();
         }
         if (loc_m.tryGetGNSSLocation(current_location, 3)) {
             log_m.logNewLocation(current_location);
-            if (btl_m.processLocation(current_location) == true) {
-                btl_m.updateDeviceToSystemMessage(device_to_system_message);
-                if (conn_m.sendDeviceToSystemMessage(device_to_system_message, MAX_ACCEPTABLE_CONNECT_DELAY)) {
+            btl_m.processLocation(current_location);
+            if (time(NULL) - latest_connect_time > CONNECT_PERIOD_IN_SECONDS) {
+                if (conn_m.sendAllMessages(&log_m, MAX_ACCEPTABLE_CONNECT_DELAY)) {
                     latest_connect_time = time(NULL);
                     if (conn_m.checkSystemToDeviceMessage(system_message)) btl_m.processSystemToDeviceMessage(system_message);
                 }
-            };
+            }
         } else {
             log_m.logLocationError();
             if (time(NULL) - latest_connect_time > CONNECT_PERIOD_IN_SECONDS) {
-                if (conn_m.getSystemToDeviceMessage(system_message)){
+                if (conn_m.getSystemToDeviceMessage(system_message, MAX_ACCEPTABLE_CONNECT_DELAY)){
                     latest_connect_time = time(NULL);
                     btl_m.processSystemToDeviceMessage(system_message);
                 } else {
                     log_m.logConnectionError();
                 };
-
             }
         };
         target_gnss_timeout = time(NULL) + GNSS_PERIOD_IN_SECONDS;
@@ -63,29 +68,14 @@ void main_task(){
     }
 }
 
-void temperature_task(){
-    while(1) {
-        while(!temperature_timeout) {
-            sleep();
-        }
-        temp_m.updateTemperatures(temperatures);
-        if (btl_m.processTemperatures(temperatures)) {
-            btl_m.updateDeviceToSystemMessage(device_to_system_message);
-            if (conn_m.sendDeviceToSystemMessage(device_to_system_message, MAX_ACCEPTABLE_CONNECT_DELAY)) latest_connect_time = time(NULL);
-        }
-        target_temperature_timeout = time(NULL) + TEMPERATURE_PERIOD_IN_SECONDS;
-        temperature_timeout = false;
-    }
-}
 
 void checkTimeouts()
 {
     time_t now = time(NULL);
     if (now >= target_gnss_timeout) gnss_timeout = true;
-    if (now >= target_temperature_timeout) temperature_timeout = true;
 }
 
-void btl_run() {
+void btl_run(void) {
     bool initialized = false;
     while(!initialized) { 
         if (conn_m.getSystemToDeviceMessage(system_message, MAX_ACCEPTABLE_CONNECT_DELAY)) {
@@ -98,7 +88,6 @@ void btl_run() {
         wait(30);
     }
     target_gnss_timeout = time(NULL) + GNSS_PERIOD_IN_SECONDS;
-    target_temperature_timeout = time(NULL) + TEMPERATURE_PERIOD_IN_SECONDS;
     halfminuteticker.attach(&checkTimeouts, 30);
     main_task();
 }
