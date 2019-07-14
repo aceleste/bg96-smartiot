@@ -22,7 +22,7 @@
 #define __MBED_CONFIG_DATA__
 
 // Configuration parameters
-#define CLOCK_SOURCE                                                          USE_PLL_MSI                                                                                      // set by target:NUCLEO_L476RG
+#define CLOCK_SOURCE                                                          USE_PLL_MSI                                                                                      // set by target:NUCLEO_L496ZG
 #define MBED_CONF_APP_MAIN_STACK_SIZE                                         3192                                                                                             // set by application
 #define MBED_CONF_APP_NETWORK_INTERFACE                                       ETHERNET                                                                                         // set by application
 #define MBED_CONF_BG96_LIBRARY_BG96_DEBUG                                     true                                                                                             // set by library:bg96-library
@@ -36,11 +36,11 @@
 #define MBED_CONF_BG96_LIBRARY_BG96_GNSS_GSVEXTNMEATYPE                       0                                                                                                // set by library:bg96-library
 #define MBED_CONF_BG96_LIBRARY_BG96_GNSS_NMEASRC                              1                                                                                                // set by library:bg96-library
 #define MBED_CONF_BG96_LIBRARY_BG96_GNSS_OUTPORT                              usbnmea                                                                                          // set by library:bg96-library
-#define MBED_CONF_BG96_LIBRARY_BG96_PWRKEY                                    PB_6                                                                                             // set by library:bg96-library[NUCLEO_L476RG]
-#define MBED_CONF_BG96_LIBRARY_BG96_RESET                                     PA_8                                                                                             // set by library:bg96-library[NUCLEO_L476RG]
-#define MBED_CONF_BG96_LIBRARY_BG96_RX                                        PA_10                                                                                            // set by library:bg96-library[NUCLEO_L476RG]
-#define MBED_CONF_BG96_LIBRARY_BG96_TX                                        PA_9                                                                                             // set by library:bg96-library[NUCLEO_L476RG]
-#define MBED_CONF_BG96_LIBRARY_BG96_WAKE                                      PA_7                                                                                             // set by library:bg96-library[NUCLEO_L476RG]
+#define MBED_CONF_BG96_LIBRARY_BG96_PWRKEY                                    D10                                                                                              // set by library:bg96-library
+#define MBED_CONF_BG96_LIBRARY_BG96_RESET                                     D7                                                                                               // set by library:bg96-library
+#define MBED_CONF_BG96_LIBRARY_BG96_RX                                        D0                                                                                               // set by library:bg96-library[NUCLEO_L496ZG]
+#define MBED_CONF_BG96_LIBRARY_BG96_TX                                        D1                                                                                               // set by library:bg96-library[NUCLEO_L496ZG]
+#define MBED_CONF_BG96_LIBRARY_BG96_WAKE                                      D11                                                                                              // set by library:bg96-library
 #define MBED_CONF_CELLULAR_DEBUG_AT                                           0                                                                                                // set by library:cellular
 #define MBED_CONF_CELLULAR_RANDOM_MAX_START_DELAY                             0                                                                                                // set by library:cellular
 #define MBED_CONF_CELLULAR_USE_APN_LOOKUP                                     1                                                                                                // set by library:cellular
@@ -147,7 +147,7 @@
 #define MBED_CONF_PPP_CELL_IFACE_AT_PARSER_TIMEOUT                            8000                                                                                             // set by library:ppp-cell-iface
 #define MBED_CONF_PPP_CELL_IFACE_BAUD_RATE                                    115200                                                                                           // set by library:ppp-cell-iface
 #define MBED_CONF_RTOS_PRESENT                                                1                                                                                                // set by library:rtos
-#define MBED_CONF_TARGET_LPTICKER_LPTIM                                       1                                                                                                // set by target:NUCLEO_L476RG
+#define MBED_CONF_TARGET_LPTICKER_LPTIM                                       1                                                                                                // set by target:NUCLEO_L496ZG
 #define MBED_CONF_TARGET_LPUART_CLOCK_SOURCE                                  USE_LPUART_CLK_LSE|USE_LPUART_CLK_PCLK1                                                          // set by target:FAMILY_STM32
 #define MBED_CONF_TARGET_LSE_AVAILABLE                                        1                                                                                                // set by target:FAMILY_STM32
 #define MBED_LFS_BLOCK_SIZE                                                   512                                                                                              // set by library:littlefs
