@@ -162,10 +162,11 @@
 #define NVSTORE_ENABLED                                                       1                                                                                                // set by library:nvstore
 #define NVSTORE_MAX_KEYS                                                      16                                                                                               // set by library:nvstore
 // Macros
-#define APN_PASSWORD                                                          "Waleed29"                                                                                       // defined by application
-#define APN_USERNAME                                                          "Ianthomson"                                                                                     // defined by application
-#define DEFAULT_APN                                                           "m2m.tele2.com"                                                                                  // defined by application
-#define DEFAULT_PDP                                                           2                                                                                                // defined by application
+// defined by application
+#define DEFAULT_APN                                                           "TM"                                                                                  // defined by application
+#define DEFAULT_PDP                                                           1
+//#define APN_USERNAME														  "eesecure"
+//#define APN_PASSWORD                                                          "secure"
 #define DEVBOARD                                                              1                                                                                                // defined by application
 #define MAX_ACCEPTABLE_CONNECT_DELAY                                          40                                                                                               // defined by application
 #define MQTT_DEBUG                                                            1                                                                                                // defined by application

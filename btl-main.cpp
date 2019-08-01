@@ -77,6 +77,7 @@ void checkTimeouts()
 
 void btl_run(void) {
     bool initialized = false;
+    bg96.doDebug(MBED_CONF_BG96_LIBRARY_BG96_DEBUG_SETTING);
     while(!initialized) { 
         if (conn_m.getSystemToDeviceMessage(system_message, MAX_ACCEPTABLE_CONNECT_DELAY)) {
             latest_connect_time = time(NULL);

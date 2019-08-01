@@ -217,6 +217,7 @@ MbedJSONValue& MbedJSONValue::operator=(MbedJSONValue const& rhs) {
             case TypeArray:
                 for (int i = 0; i < rhs.index_array; i++)
                     (*this)[i] = rhs[i];
+                break;
             case TypeObject:
                 for (int i = 0; i < rhs.index_token; i++)
                     (*this)[*(rhs.token_name[i])] = rhs[*(rhs.token_name[i])];

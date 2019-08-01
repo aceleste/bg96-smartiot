@@ -1,12 +1,10 @@
 {
     "macros": [
-        "DEFAULT_APN=\"m2m.tele2.com\"",
+        "DEFAULT_APN=\"TM\"",
         "DEFAULT_PDP=2",
         "MQTT_DEBUG=1",
         "MAX_ACCEPTABLE_CONNECT_DELAY=40",
-        "DEVBOARD=1",
-        "APN_USERNAME=\"Ianthomson\"",
-        "APN_PASSWORD=\"Waleed29\""
+        "DEVBOARD=1"
     ],
     "config": {
         "main-stack-size": {

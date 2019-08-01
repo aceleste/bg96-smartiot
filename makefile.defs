@@ -1,0 +1,1 @@
+export PREPROC_CMD = /Applications/Ac6/SystemWorkbench.app/Contents/Eclipse/plugins/fr.ac6.mcu.externaltools.arm-none.macos64_1.17.0.201812190825/tools/compiler/bin/arm-none-eabi-cpp -E -P

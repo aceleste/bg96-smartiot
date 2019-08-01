@@ -394,7 +394,7 @@ void get_system_to_device(ConnectionManager *conn_m)
 {
     if (conn_m == NULL) return;
     conn_m->setConnectionStatus(TRYING_TO_CONNECT);
-    if (conn_m->connectToServer()) {
+    if (conn_m->connectToServer()==0) {
         conn_m->setConnectionStatus(CONNECTED_TO_SERVER);
         char topictoreadfrom[128] = "devices/";
         strcat(topictoreadfrom, DEVICE_ID);
@@ -490,7 +490,7 @@ void send_device_to_system(ConnectionManager *conn_m)
 {
     if (conn_m==NULL) return;
     conn_m->setConnectionStatus(TRYING_TO_CONNECT);
-    if (conn_m->connectToServer()) {
+    if (conn_m->connectToServer()==0) {
         conn_m->setConnectionStatus(CONNECTED_TO_SERVER);
         char topictoreadfrom[128] = "devices/";
         strcat(topictoreadfrom, DEVICE_ID);
@@ -511,7 +511,7 @@ void send_all_device_to_system(ConnectionManager *conn_m)
 {
     if (conn_m==NULL) return;
     conn_m->setConnectionStatus(TRYING_TO_CONNECT);
-    if (conn_m->connectToServer()) {
+    if (conn_m->connectToServer()==0) {
         conn_m->setConnectionStatus(CONNECTED_TO_SERVER);
         char topictoreadfrom[128] = "devices/";
         strcat(topictoreadfrom, DEVICE_ID);

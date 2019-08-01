@@ -1,0 +1,3 @@
+[submodule "BG96-Driver"]
+	path = BG96-Driver
+	url = git@github.com:aceleste/BG96-Driver.git

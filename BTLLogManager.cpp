@@ -91,6 +91,7 @@ bool BTLLogManager::flushDeviceToSystemFile(FILE_HANDLE &fh)
     if (rc) {
         rc = _bg96->fs_truncate(fh, 0);
     }
+    return rc;
 }
 
 void BTLLogManager::stopDeviceSystemDumpSession(FILE_HANDLE &fh)

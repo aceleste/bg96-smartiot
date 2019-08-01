@@ -6,16 +6,16 @@
 #include "Thread.h"
 #include <string>
 #if !defined(GEOFENCE_EVENTS_FILENAME)
-#define GEOFENCE_EVENTS_FILENAME "log/geofenceevents.log"
+#define GEOFENCE_EVENTS_FILENAME "geofenceevents.log"
 #endif
 #if !defined(ERRORS_FILENAME)
-#define ERRORS_FILENAME "log/errors.log"
+#define ERRORS_FILENAME "errors.log"
 #endif
 #if !defined(LOCATION_HISTORY_FILENAME)
-#define LOCATION_HISTORY_FILENAME "log/location.log"
+#define LOCATION_HISTORY_FILENAME "location.log"
 #endif
 #if !defined(DEVICE_TO_SYSTEM_MSG_FILENAME)
-#define DEVICE_TO_SYSTEM_MSG_FILENAME "log/dts.log"
+#define DEVICE_TO_SYSTEM_MSG_FILENAME "dts.log"
 #endif
 
 class BTLLogManager
