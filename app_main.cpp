@@ -1,37 +1,31 @@
 #include "mbed.h"
-#include "btl_main.h"
+#include "app_main.h"
 #include <string>
-#include "BTLManager.h"
-#include "ConnectionManager.h"
-#include "LocationManager.h"
-#include "BTLLogManager.h"
-#include "TemperatureManager.h"
+#include "API/AppManager.h"
+#include "API/ConnectionManager.h"
+#include "API/LocationManager.h"
+#include "API/LogManager.h"
+#include "API/TemperatureManager.h"
 #include "LowPowerTicker.h"
 
 #define CONNECT_PERIOD_IN_SECONDS 900
 #define GNSS_PERIOD_IN_SECONDS 300
-#define TEMPERATURE_PERIOD_IN_SECONDS 60
 
 bool gnss_timeout;
-bool temperature_timeout;
-double temperatures[MAX_PROBES]; //temperatures[0] -> Container; temperatures[1] -> Heater
 
 std::string system_message;
 std::string device_to_system_message;
 
 time_t latest_connect_time;
 time_t target_gnss_timeout;
-time_t target_temperature_timeout;
 
 LowPowerTicker halfminuteticker;
-LowPowerTicker temperatureticker;
 static BG96Interface bg96;
 static ConnectionManager conn_m(&bg96);
 static LocationManager loc_m(&bg96);
-static BTLLogManager log_m(&bg96);
-static TemperatureManager temp_m;
-static BTLManager btl_m(&conn_m,
-                 &temp_m,
+static LogManager log_m(&bg96);
+static AppManager app_m(&conn_m,
+                 null,
                  &loc_m,
                  &log_m);
 
@@ -45,11 +39,11 @@ void main_task(){
         }
         if (loc_m.tryGetGNSSLocation(current_location, 3)) {
             log_m.logNewLocation(current_location);
-            btl_m.processLocation(current_location);
+            app_m.processLocation(current_location);
             if (time(NULL) - latest_connect_time > CONNECT_PERIOD_IN_SECONDS) {
                 if (conn_m.sendAllMessages(&log_m, MAX_ACCEPTABLE_CONNECT_DELAY)) {
                     latest_connect_time = time(NULL);
-                    if (conn_m.checkSystemToDeviceMessage(system_message)) btl_m.processSystemToDeviceMessage(system_message);
+                    if (conn_m.checkSystemToDeviceMessage(system_message)) app_m.processSystemToDeviceMessage(system_message);
                 }
             }
         } else {
@@ -57,7 +51,7 @@ void main_task(){
             if (time(NULL) - latest_connect_time > CONNECT_PERIOD_IN_SECONDS) {
                 if (conn_m.getSystemToDeviceMessage(system_message, MAX_ACCEPTABLE_CONNECT_DELAY)){
                     latest_connect_time = time(NULL);
-                    btl_m.processSystemToDeviceMessage(system_message);
+                    app_m.processSystemToDeviceMessage(system_message);
                 } else {
                     log_m.logConnectionError();
                 };
@@ -75,13 +69,13 @@ void checkTimeouts()
     if (now >= target_gnss_timeout) gnss_timeout = true;
 }
 
-void btl_run(void) {
+void app_run(void) {
     bool initialized = false;
     bg96.doDebug(MBED_CONF_BG96_LIBRARY_BG96_DEBUG_SETTING);
     while(!initialized) { 
         if (conn_m.getSystemToDeviceMessage(system_message, MAX_ACCEPTABLE_CONNECT_DELAY)) {
             latest_connect_time = time(NULL);
-            btl_m.processSystemToDeviceMessage(system_message);
+            app_m.processSystemToDeviceMessage(system_message);
             initialized = true;
         } else {
             log_m.logConnectionError();

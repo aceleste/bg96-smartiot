@@ -215,8 +215,10 @@ size_t ConnectionManager::generate_sas_token(char *out, const char * resourceUri
 
 void ConnectionManager::newSystemMessage(char *msg)
 {
+    _connect_mutex.lock();
     _system_message = msg;
     _msg_received = true;
+    _connect_mutex.unlock();
 }
 
 void system_to_device_message_handler(MQTTMessage *msg, void *param)
@@ -235,7 +237,9 @@ void system_to_device_message_handler(MQTTMessage *msg, void *param)
 
 void system_to_device_timeout()
 {
+    _connect_mutex.lock();
     _timeout_triggered = true;
+    _connect_mutex.unlock();
 }
 
 void ConnectionManager::getRSSI(double &rssi)
@@ -382,7 +386,9 @@ int ConnectionManager::connectToServer()
 
 void ConnectionManager::setConnectionStatus(CONN_STATE status)
 {
+    _connect_mutex.lock();
     _conn_state = status;
+    _connect_mutex.unlock();
 }
 
 int ConnectionManager::subscribe(char *topic, int qos, MQTTMessageHandler handler)
@@ -445,7 +451,9 @@ bool ConnectionManager::getSystemToDeviceMessage(std::string &system_message, in
 
 void device_to_system_timeout(void)
 {
+    _connect_mutex.lock();
     _timeout_triggered = true;
+    _connect_mutex.unlock();
 }
 
 void ConnectionManager::publish(void)
@@ -460,11 +468,13 @@ void ConnectionManager::publish(void)
     msgtopublish.topic.len = strlen(topictowriteto);
     msgtopublish.msg.len = _device_message.length();
     strcpy(msgtopublish.msg.payload,_device_message.c_str());
+    _connect_mutex.lock();
     if (_mqtt->publish(&msgtopublish)) {
         _msg_sent = true;
     } else {
         _msg_sent = false;
     }
+    _connect_mutex.unlock();
 }
 
 void ConnectionManager::publish(std::string &msg)
@@ -479,11 +489,13 @@ void ConnectionManager::publish(std::string &msg)
     msgtopublish.topic.len = strlen(topictowriteto);
     msgtopublish.msg.len = msg.length();
     strcpy(msgtopublish.msg.payload,msg.c_str());
+    _connect_mutex.lock();
     if (_mqtt->publish(&msgtopublish)) {
         _msg_sent = true;
     } else {
         _msg_sent = false;
     }    
+    _connect_mutex.unlock();
 }
 
 void send_device_to_system(ConnectionManager *conn_m)
@@ -521,7 +533,7 @@ void send_all_device_to_system(ConnectionManager *conn_m)
         } else {
             printf("Successfully subscribred to topic %s\r\n", topictoreadfrom);
         }
-        BTLLogManager *log_m = conn_m->getLogManager();
+        LogManager *log_m = conn_m->getLogManager();
         FILE_HANDLE fh;
         std::string dts;
         log_m->startDeviceToSystemDumpSession(fh);
@@ -534,7 +546,7 @@ void send_all_device_to_system(ConnectionManager *conn_m)
     while(true) {wait(10);}      
 }
 
-bool ConnectionManager::sendAllMessages(BTLLogManager *log_m, int timeout)
+bool ConnectionManager::sendAllMessages(LogManager *log_m, int timeout)
 {
     _log_m = log_m;
     if (!_mqtt->startMQTTClient()) return false;

@@ -1,29 +1,16 @@
-#include "BTLLogManager.h"
+#include "LogManager.h"
 #include "BG96Interface.h"
-#include "BTLManager.h"
+#include "AppManager.h"
 #include <string>
 
 char dts[BG96_MQTT_CLIENT_MAX_PUBLISH_MSG_SIZE];
 
-BTLLogManager::BTLLogManager(BG96Interface *bg96)
+LogManager::LogManager(BG96Interface *bg96)
 {
     _bg96 = bg96;
 }
 
-bool BTLLogManager::logGeofenceEvents(void *param)
-{
-    bool rc;
-    char eol = '\n';
-    std::string filename = GEOFENCE_EVENTS_FILENAME;
-    if (append(filename, (void *)param, sizeof(param), true, false)) {
-        rc = append(filename, (void *) &eol, 1, false, true);
-    } else {
-        rc = false;
-    };
-    return rc;
-}
-
-bool BTLLogManager::append(std::string filename, void *data, size_t length, bool initialize, bool powerOff)
+bool LogManager::append(std::string filename, void *data, size_t length, bool initialize, bool powerOff)
 {
     if (initialize) _bg96->initializeBG96();
     _bg96->disallowPowerOff();
@@ -43,7 +30,7 @@ bool BTLLogManager::append(std::string filename, void *data, size_t length, bool
     return true;
 }
 
-bool BTLLogManager::appendDeviceToSystemMessage(std::string &dts_string)
+bool LogManager::appendDeviceToSystemMessage(std::string &dts_string)
 {
     bool rc;
     char eol = '\n';
@@ -59,7 +46,7 @@ bool BTLLogManager::appendDeviceToSystemMessage(std::string &dts_string)
     return rc;
 }
 
-bool BTLLogManager::startDeviceToSystemDumpSession(FILE_HANDLE &fh)
+bool LogManager::startDeviceToSystemDumpSession(FILE_HANDLE &fh)
 {
     bool rc = false;
     _log_m_mutex.lock();
@@ -71,7 +58,7 @@ bool BTLLogManager::startDeviceToSystemDumpSession(FILE_HANDLE &fh)
     return rc;
 }
 
-bool BTLLogManager::getNextDeviceToSystemMessage(FILE_HANDLE &fh, std::string &dts_string)
+bool LogManager::getNextDeviceToSystemMessage(FILE_HANDLE &fh, std::string &dts_string)
 {
     bool rc;
     char buffer[1548] = {0};
@@ -85,7 +72,7 @@ bool BTLLogManager::getNextDeviceToSystemMessage(FILE_HANDLE &fh, std::string &d
     return true;
 }
 
-bool BTLLogManager::flushDeviceToSystemFile(FILE_HANDLE &fh)
+bool LogManager::flushDeviceToSystemFile(FILE_HANDLE &fh)
 {
     bool rc = _bg96->fs_rewind(fh);
     if (rc) {
@@ -94,13 +81,13 @@ bool BTLLogManager::flushDeviceToSystemFile(FILE_HANDLE &fh)
     return rc;
 }
 
-void BTLLogManager::stopDeviceSystemDumpSession(FILE_HANDLE &fh)
+void LogManager::stopDeviceSystemDumpSession(FILE_HANDLE &fh)
 {
     _bg96->fs_close(fh);
     _log_m_mutex.unlock();
 }
 
-bool BTLLogManager::logAnError(std::string error)
+bool LogManager::logAnError(std::string error)
 {
     bool rc;
     char eol = '\n';
@@ -115,7 +102,7 @@ bool BTLLogManager::logAnError(std::string error)
     return rc;
 }
 
-bool BTLLogManager::logNewLocation(GNSSLoc &loc)
+bool LogManager::logNewLocation(GNSSLoc &loc)
 {
     bool rc;
     char eol = '\n';
@@ -133,7 +120,7 @@ bool BTLLogManager::logNewLocation(GNSSLoc &loc)
     return rc;    
 }
 
-bool BTLLogManager::logLocationError()
+bool LogManager::logLocationError()
 {
     time_t now = time(NULL);
     std::string timestr = ctime(&now);
@@ -141,16 +128,26 @@ bool BTLLogManager::logLocationError()
     return logAnError(timestr+error);
 }
 
-bool BTLLogManager::logSystemStartEvent()
+bool LogManager::logSystemStartEvent()
 {
     time_t now = time(NULL);
     std::string timestr = ctime(&now);
     std::string error = " SYSTEM STARTED.";
-    std::string ferror = timestr+error;
-    return logAnError(ferror);
+    std::string fevent = timestr+error;
+    bool rc;
+    char eol = '\n';
+    std::string filename(EVENTS_FILENAME);
+    _log_m_mutex.lock();
+    if (append(filename, (void *)fevent.c_str(), fevent.length+1, true, false)) {
+        rc = append(filename, (void *) &eol, (size_t)1, false, true);
+    } else {
+        rc = false;
+    }
+    _log_m_mutex.unlock();
+    return rc;  
 }
 
-bool BTLLogManager::logConnectionError()
+bool LogManager::logConnectionError()
 {
     time_t now = time(NULL);
     std::string timestr = ctime(&now);

@@ -5,11 +5,12 @@
 #include "mbed.h"
 #include "Thread.h"
 #include <string>
-#if !defined(GEOFENCE_EVENTS_FILENAME)
-#define GEOFENCE_EVENTS_FILENAME "geofenceevents.log"
-#endif
+
 #if !defined(ERRORS_FILENAME)
 #define ERRORS_FILENAME "errors.log"
+#endif
+#if !defined(EVENTS_FILENAME)
+#define EVENTS_FILENAME "events.log"
 #endif
 #if !defined(LOCATION_HISTORY_FILENAME)
 #define LOCATION_HISTORY_FILENAME "location.log"
@@ -18,12 +19,11 @@
 #define DEVICE_TO_SYSTEM_MSG_FILENAME "dts.log"
 #endif
 
-class BTLLogManager
+class LogManager
 {
 public:
-    BTLLogManager(BG96Interface *bg96);
-    ~BTLLogManager(){};
-    bool logGeofenceEvents(void *param);
+    LogManager(BG96Interface *bg96);
+    ~LogManager(){};
     bool logAnError(std::string error);
     bool logNewLocation(GNSSLoc &loc);
     bool logSystemStartEvent();
@@ -42,6 +42,7 @@ private:
     FILE_HANDLE _dts_file_handle;
     FILE_HANDLE _error_file_handle;
     FILE_HANDLE _location_events_file_handle;
+    FILE_HANDLE _events_file_handle;
 };
 
 #endif //__LOG_MANAGER_H__

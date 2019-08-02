@@ -1,7 +1,7 @@
 #include "mbed.h"
-#include "btl_main.h"
+#include "app_main.h"
 
 int main(void) {
-    btl_run();
+    app_run();
     return 1;
 }

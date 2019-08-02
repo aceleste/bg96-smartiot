@@ -1,7 +1,7 @@
 #ifndef __CONNECTION_MANAGER_H__
 #define __CONNECTION_MANAGER_H__
 #include "mbed.h"
-#include "BTLLogManager.h"
+#include "LogManager.h"
 #include <string>
 #include "mbed-os/drivers/LowPowerTimeout.h"
 #include "BG96Interface.h"
@@ -32,8 +32,8 @@ public:
     void publish(std::string &msg);
     void disconnect(void);
     void newSystemMessage(char * msg);
-    bool sendAllMessages(BTLLogManager *log_m, int timeout);
-    BTLLogManager * getLogManager(){ return _log_m;};
+    bool sendAllMessages(LogManager *log_m, int timeout);
+    LogManager * getLogManager(){ return _log_m;};
 
 private:
     size_t  replace_str(char * initial, char * token, char * replacement);
@@ -44,7 +44,7 @@ private:
     LowPowerTimeout _timeout;
     BG96Interface *_bg96;
     BG96MQTTClient * _mqtt;
-    BTLLogManager *_log_m;
+    LogManager *_log_m;
     bool active;
     unsigned char generated_sig[80];
     char username[256]={0};
@@ -55,6 +55,7 @@ private:
     bool _msg_received;
     bool _msg_sent;
     Thread _connect_thread;
+    Mutex _connect_mutex;
     CONN_STATE _conn_state;
     double _rssi;
 };
