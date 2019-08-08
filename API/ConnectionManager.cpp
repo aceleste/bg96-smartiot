@@ -28,6 +28,7 @@ bool _timeout_triggered;
 void device_to_system_timeout(void);
 void system_to_device_timeout();
 void system_to_device_message_handler(MQTTMessage *msg, void *param);
+static char payload[1548];
 
 ConnectionManager::ConnectionManager(BG96Interface *bg96)
 {
@@ -35,6 +36,10 @@ ConnectionManager::ConnectionManager(BG96Interface *bg96)
     _mqtt = _bg96->getBG96MQTTClient(NULL);
     _rssi = 0.0;
     _log_m = NULL;
+    _conn_state = DISCONNECTED;
+    _msg_sent = false;
+    _msg_received = false;
+//    _connect_thread = NULL;
 }
 
 ConnectionManager::~ConnectionManager()
@@ -43,7 +48,7 @@ ConnectionManager::~ConnectionManager()
     _bg96->powerDown();
 }
 
-/* This function looks for every occurences of the token in initial string and replaces each one by replacement */
+/* This function looks for every occurrences of the token in initial string and replaces each one by replacement */
 size_t ConnectionManager::replace_str(char * initial, char * token, char * replacement) {
     if ( initial == NULL || token == NULL || replacement == NULL ) return 0;
     printf("SAS before replacement:\r\n");
@@ -213,7 +218,7 @@ size_t ConnectionManager::generate_sas_token(char *out, const char * resourceUri
     return result ? result:strlen(out);
 }
 
-void ConnectionManager::newSystemMessage(char *msg)
+void ConnectionManager::newSystemMessage(char *msg, size_t len)
 {
     _connect_mutex.lock();
     _system_message = msg;
@@ -231,15 +236,13 @@ void system_to_device_message_handler(MQTTMessage *msg, void *param)
     // printf("Received MQTT message on topic %s\r\n", msg->topic.payload);
     // printf("Message payload is -> \r\n");
     // printf("%s\r\n",msg->msg.payload);
-    if (strlen(msg->msg.payload) > BG96_MQTT_CLIENT_MAX_PUBLISH_MSG_SIZE)  return;
-    conn_m->newSystemMessage(msg->msg.payload);
+    if (msg->msg.len > BG96_MQTT_CLIENT_MAX_PUBLISH_MSG_SIZE)  return;
+    conn_m->newSystemMessage(msg->msg.payload, msg->msg.len);
 }
 
 void system_to_device_timeout()
 {
-    _connect_mutex.lock();
     _timeout_triggered = true;
-    _connect_mutex.unlock();
 }
 
 void ConnectionManager::getRSSI(double &rssi)
@@ -267,8 +270,9 @@ int ConnectionManager::connectToServer()
     pdp_ctx.password = apn_password;
 
     printf("Configuring PDP context...\r\n");
+    _connect_mutex.lock();
     rc = _mqtt->configure_pdp_context(&pdp_ctx);
-
+    _connect_mutex.unlock();
     if (rc < 0) {
         printf("Error when configuring pdp context %d.\r\n", pdp_ctx.pdp_id);
         return -1;
@@ -276,9 +280,9 @@ int ConnectionManager::connectToServer()
     printf("Succesfully configured pdp context %d.\r\n", pdp_ctx.pdp_id);
 
     printf("Activate PDP context...\r\n");
-
+    _connect_mutex.lock();
     rc= _bg96->connect();
-
+    _connect_mutex.unlock();
     if (!rc){
         printf("Error when activating the PDP context.\r\n");
         return -1;
@@ -291,13 +295,13 @@ int ConnectionManager::connectToServer()
     printf("Now trying to set system time...\r\n");
 
     time_t current_time;
-
+    _connect_mutex.lock();
     if (_bg96->getNetworkGMTTime(&current_time) != NSAPI_ERROR_OK) {
         NetworkInterface *itf = (NetworkInterface *)&_bg96; // We need a NetworkInterface reference for NTPClient
         NTPClient ntp = NTPClient(itf);
         current_time = ntp.get_timestamp();
     }
-
+    _connect_mutex.unlock();
     set_time(current_time);
     char buffer[32];
     current_time = time(NULL);
@@ -312,9 +316,9 @@ int ConnectionManager::connectToServer()
     mqtt_options.sslenable      = 1;
 
     printf("Configuring MQTT options...\r\n");
-
+    _connect_mutex.lock();
     rc = _mqtt->configure_mqtt(&mqtt_options);
-
+    _connect_mutex.unlock();
     if (rc < 0 ) {
         printf("Error when configuring MQTT options (%d)\r\n", rc);
         return -1;
@@ -337,9 +341,9 @@ int ConnectionManager::connectToServer()
     network_ctx.port = MQTT_SERVER_PORT;
 
     printf("Opening a network socket to %s:%d\r\n", network_ctx.hostname.payload, network_ctx.port);
-
+    _connect_mutex.lock();
     rc = _mqtt->open(&network_ctx);
-
+    _connect_mutex.unlock();
     if (rc < 0) {
         printf("Error opening the network socket (%d)\r\n", rc);
 //        tls = bg96->getBG96TLSSocket();
@@ -378,8 +382,9 @@ int ConnectionManager::connectToServer()
     connect_ctx.password.len = strlen(connect_ctx.password.payload);
 
     printf("Connecting to the IoT Hub server %s...\r\n",network_ctx.hostname.payload);
-
+    _connect_mutex.lock();
     rc = _mqtt->connect(&connect_ctx);
+        _connect_mutex.unlock();
     return rc;
 
 }
@@ -393,7 +398,11 @@ void ConnectionManager::setConnectionStatus(CONN_STATE status)
 
 int ConnectionManager::subscribe(char *topic, int qos, MQTTMessageHandler handler)
 {
-    return _mqtt->subscribe(topic, qos, handler, this);
+    int rc;
+    _connect_mutex.lock();
+    rc = _mqtt->subscribe(topic, qos, handler, this);
+    _connect_mutex.unlock();
+    return rc;
 }
 
 void get_system_to_device(ConnectionManager *conn_m) 
@@ -402,6 +411,8 @@ void get_system_to_device(ConnectionManager *conn_m)
     conn_m->setConnectionStatus(TRYING_TO_CONNECT);
     if (conn_m->connectToServer()==0) {
         conn_m->setConnectionStatus(CONNECTED_TO_SERVER);
+        std::string msg("HELLO");
+        conn_m->publish(msg);
         char topictoreadfrom[128] = "devices/";
         strcat(topictoreadfrom, DEVICE_ID);
         strcat(topictoreadfrom,"/messages/devicebound/#");
@@ -409,6 +420,7 @@ void get_system_to_device(ConnectionManager *conn_m)
             printf("Error while subcribing to topic %s.\r\n", topictoreadfrom);
         } else {
             printf("Successfully subscribred to topic %s\r\n", topictoreadfrom);
+            conn_m->trackSystemToDeviceMessages();
         }
     } else {
         conn_m->setConnectionStatus(CONNECTION_FAILED);
@@ -419,25 +431,39 @@ void get_system_to_device(ConnectionManager *conn_m)
 void ConnectionManager::disconnect(void)
 {
     setConnectionStatus(DISCONNECTING);
+    _connect_mutex.lock();
     if (_mqtt->disconnect()) setConnectionStatus(DISCONNECTED);
     _bg96->powerDown();
+    _connect_mutex.unlock();
 }
 
 bool ConnectionManager::getSystemToDeviceMessage(std::string &system_message, int timeout)
 {
+    int rc;
     printf("trying to get system to device message.\r\n");
     _msg_received = false;
-    if (!_mqtt->startMQTTClient()) return false;
+    _connect_mutex.lock();
+    rc = _mqtt->startMQTTClient();
+    _connect_mutex.unlock();
+    if (!rc) return false;
+    _connect_mutex.lock();
     _bg96->disallowPowerOff();
     _rssi = (double) _bg96->get_rssi();
+    _connect_mutex.unlock();
     _timeout_triggered = false;
     _timeout.attach(system_to_device_timeout, timeout);
-    _connect_thread.start(callback(get_system_to_device,this));
+    Thread s1(callback(get_system_to_device,this));
+   // _connect_thread.start(callback(get_system_to_device,this));
     while(!_timeout_triggered) { if (_msg_received) break;};
+    std::string msg("BYE");
+    publish(msg);
     printf("timeout triggered or message received\r\n");
-    _connect_thread.terminate();
+    s1.terminate();
+    //_connect_thread.terminate();
     _timeout.detach();
+    _connect_mutex.lock();
     _bg96->allowPowerOff();
+    _connect_mutex.unlock();
     printf("shutting down modem\r\n");
     disconnect();
     if (_msg_received) {
@@ -449,11 +475,16 @@ bool ConnectionManager::getSystemToDeviceMessage(std::string &system_message, in
     }
 }
 
-void device_to_system_timeout(void)
+void ConnectionManager::trackSystemToDeviceMessages()
 {
     _connect_mutex.lock();
-    _timeout_triggered = true;
+    _mqtt->dowork();
     _connect_mutex.unlock();
+}
+
+void device_to_system_timeout(void)
+{
+    _timeout_triggered = true;
 }
 
 void ConnectionManager::publish(void)
@@ -467,7 +498,8 @@ void ConnectionManager::publish(void)
     msgtopublish.topic.payload = topictowriteto;
     msgtopublish.topic.len = strlen(topictowriteto);
     msgtopublish.msg.len = _device_message.length();
-    strcpy(msgtopublish.msg.payload,_device_message.c_str());
+    strcpy(payload, _device_message.c_str());
+    msgtopublish.msg.payload = payload;
     _connect_mutex.lock();
     if (_mqtt->publish(&msgtopublish)) {
         _msg_sent = true;
@@ -488,7 +520,8 @@ void ConnectionManager::publish(std::string &msg)
     msgtopublish.topic.payload = topictowriteto;
     msgtopublish.topic.len = strlen(topictowriteto);
     msgtopublish.msg.len = msg.length();
-    strcpy(msgtopublish.msg.payload,msg.c_str());
+    strcpy(payload,msg.c_str());
+    msgtopublish.msg.payload = payload;
     _connect_mutex.lock();
     if (_mqtt->publish(&msgtopublish)) {
         _msg_sent = true;
@@ -533,6 +566,7 @@ void send_all_device_to_system(ConnectionManager *conn_m)
         } else {
             printf("Successfully subscribred to topic %s\r\n", topictoreadfrom);
         }
+        conn_m->trackSystemToDeviceMessages();
         LogManager *log_m = conn_m->getLogManager();
         FILE_HANDLE fh;
         std::string dts;
@@ -548,16 +582,25 @@ void send_all_device_to_system(ConnectionManager *conn_m)
 
 bool ConnectionManager::sendAllMessages(LogManager *log_m, int timeout)
 {
+    int rc;
+    _msg_sent = false;
     _log_m = log_m;
-    if (!_mqtt->startMQTTClient()) return false;
+    _connect_mutex.lock();
+    rc = _mqtt->startMQTTClient();
+    _connect_mutex.unlock();
+    if (!rc) return false;
+    _connect_mutex.lock();
     _bg96->disallowPowerOff();
+    _connect_mutex.unlock();
     _timeout_triggered = false;
     _timeout.attach(device_to_system_timeout, timeout);
-    _connect_thread.start(callback(send_all_device_to_system,this));
+    Thread s1(callback(send_all_device_to_system,this));
     while(!_timeout_triggered) { if (_msg_sent) break;};
-    _connect_thread.terminate();
+    s1.terminate();
     _timeout.detach();
+    _connect_mutex.lock();
     _bg96->allowPowerOff();
+    _connect_mutex.unlock();
     disconnect();
     if (_msg_sent) {
         return true;
@@ -568,16 +611,25 @@ bool ConnectionManager::sendAllMessages(LogManager *log_m, int timeout)
 
 bool ConnectionManager::sendDeviceToSystemMessage(std::string &device_to_system_message, int timeout)
 {
-    if (!_mqtt->startMQTTClient()) return false;
+    int rc;
+    _msg_sent = false;
+    _connect_mutex.lock();
+    rc = _mqtt->startMQTTClient();
+    _connect_mutex.unlock();
+    if (!rc) return false;
+    _connect_mutex.lock();
     _bg96->disallowPowerOff();
+    _connect_mutex.unlock();
     _timeout_triggered = false;
     _timeout.attach(device_to_system_timeout, timeout);
     _device_message = device_to_system_message;
-    _connect_thread.start(callback(send_device_to_system,this));
+    Thread s1(callback(send_device_to_system,this));
     while(!_timeout_triggered) { if (_msg_sent) break;};
-    _connect_thread.terminate();
+    s1.terminate();
     _timeout.detach();
+    _connect_mutex.lock();
     _bg96->allowPowerOff();
+    _connect_mutex.unlock();
     disconnect();
     if (_msg_sent) {
         return true;
@@ -590,6 +642,7 @@ bool ConnectionManager::checkSystemToDeviceMessage(std::string &system_message)
 {
     if (_msg_received) {
         system_message = _system_message;
+        _msg_received = false; // We assume once it is checked, it has been processed.
         return true;
     } else {
         system_message = "";

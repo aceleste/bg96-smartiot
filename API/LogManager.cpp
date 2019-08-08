@@ -8,6 +8,11 @@ char dts[BG96_MQTT_CLIENT_MAX_PUBLISH_MSG_SIZE];
 LogManager::LogManager(BG96Interface *bg96)
 {
     _bg96 = bg96;
+    _dts_file_offset = 0;
+    _error_file_handle = 0;
+    _dts_file_handle = 0;
+    _events_file_handle = 0;
+    _location_events_file_handle = 0;
 }
 
 bool LogManager::append(std::string filename, void *data, size_t length, bool initialize, bool powerOff)
@@ -61,8 +66,7 @@ bool LogManager::startDeviceToSystemDumpSession(FILE_HANDLE &fh)
 bool LogManager::getNextDeviceToSystemMessage(FILE_HANDLE &fh, std::string &dts_string)
 {
     bool rc;
-    char buffer[1548] = {0};
-    char eol = '\n';
+    char buffer[BG96_MQTT_CLIENT_MAX_PUBLISH_MSG_SIZE] = {0};
     for (int i = 0; i < BG96_MQTT_CLIENT_MAX_PUBLISH_MSG_SIZE; i++) {
         rc = _bg96->fs_read(fh,1,&buffer[i]);
         if (!rc) return false; //reading past the eof will return an error;
@@ -138,7 +142,7 @@ bool LogManager::logSystemStartEvent()
     char eol = '\n';
     std::string filename(EVENTS_FILENAME);
     _log_m_mutex.lock();
-    if (append(filename, (void *)fevent.c_str(), fevent.length+1, true, false)) {
+    if (append(filename, (void *)fevent.c_str(), fevent.length()+1, true, false)) {
         rc = append(filename, (void *) &eol, (size_t)1, false, true);
     } else {
         rc = false;

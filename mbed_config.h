@@ -168,7 +168,7 @@
 //#define APN_USERNAME														  "eesecure"
 //#define APN_PASSWORD                                                          "secure"
 #define DEVBOARD                                                              1                                                                                                // defined by application
-#define MAX_ACCEPTABLE_CONNECT_DELAY                                          40                                                                                               // defined by application
+#define MAX_ACCEPTABLE_CONNECT_DELAY                                          120                                                                                               // defined by application
 #define MQTT_DEBUG                                                            1                                                                                                // defined by application
 #define NS_USE_EXTERNAL_MBED_TLS                                                                                                                                               // defined by library:nanostack
 #define UNITY_INCLUDE_CONFIG_H                                                                                                                                                 // defined by library:utest

@@ -21,7 +21,7 @@ public:
                                LogManager *log_m);
                     ~AppManager();
     bool            getLocation(GNSSLoc &location);
-    void            processLocation(GNSSLoc &current_location, void (*callback)(GNSSLoc &, TaskParameter &));
+    void            processLocation(GNSSLoc *current_location, void (*callback)(GNSSLoc *, TaskParameter &));
     bool            getSystemToDeviceMessage(std::string &system_message);
     void            processSystemToDeviceMessage(std::string &system_message, void (*callback)(std::string &, TaskParameter &));
     bool            queueDeviceToSystemMessage(std::string &device_message);

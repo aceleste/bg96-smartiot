@@ -12,6 +12,9 @@ AppManager::AppManager(ConnectionManager *conn_m,
     _conn_m = conn_m;
     _loc_m = loc_m;
     _log_m = log_m;
+    param.conn_m = conn_m;
+    param.loc_m = loc_m;
+    param.log_m = log_m;
     log_m->logSystemStartEvent();
 }
 
@@ -24,7 +27,7 @@ AppManager::~AppManager()
 * Returns true if current_location inside geofence, or if we received a status request message
 *
 **/
-void AppManager::processLocation(GNSSLoc &current_location, void (*callback)(GNSSLoc &, TaskParameter &))
+void AppManager::processLocation(GNSSLoc *current_location, void (*callback)(GNSSLoc *, TaskParameter &))
 {
     callback(current_location, param);
 }

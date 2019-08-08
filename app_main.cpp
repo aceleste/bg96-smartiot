@@ -1,3 +1,18 @@
+/*
+ * This example application demonstrates using the API for GNSS location and IoT Hub messaging services
+ * It will wait until a first cloud to device message with "OK" as data is sent, then it will start
+ * getting the GNSS location and queuing this time-stamped information with the following format:
+ * {"type": "STATUS", "utctime": "Fri  2/08/2019 16:08:02 UTC+2", "gnss": {"altitude": "645.4", "latitude": "-21.245970", "longitude": "55.516857"}}
+ *
+ * Periodically, the connection to IoT Hub is triggered and the queue is dumped to the server (several status messages are sent at once.)
+ *
+ * The server can send configuration json messages to the devices of the form:
+ * {"type": "CONFIG", <"gnss_period": 10-3600> || <"connect_period": 360-86400>}
+ * For example: {"type": "CONFIG", "gnss_period": 200} or {"type": "CONFIG", "connect_period": 3600} or
+ * {"type": "CONFIG", "gnss_period": 360, "connect_period": 3600}
+ * which allows remote control on the periods of gnss tracking and server connection.
+ *
+ */
 #include "mbed.h"
 #include "app_main.h"
 #include <string>
@@ -5,13 +20,14 @@
 #include "API/ConnectionManager.h"
 #include "API/LocationManager.h"
 #include "API/LogManager.h"
-#include "API/TemperatureManager.h"
 #include "LowPowerTicker.h"
+#include "MbedJSONValue.h"
 
-#define CONNECT_PERIOD_IN_SECONDS 900
-#define GNSS_PERIOD_IN_SECONDS 300
+#define CONNECT_PERIOD_IN_SECONDS 120
+#define GNSS_PERIOD_IN_SECONDS 60
 
 bool gnss_timeout;
+time_t now;
 
 std::string system_message;
 std::string device_to_system_message;
@@ -25,39 +41,98 @@ static ConnectionManager conn_m(&bg96);
 static LocationManager loc_m(&bg96);
 static LogManager log_m(&bg96);
 static AppManager app_m(&conn_m,
-                 null,
                  &loc_m,
                  &log_m);
+static bool initialized;
+static int gnss_period_in_sec;
+static int connect_period_in_sec;
 
+void locationProcess(GNSSLoc *location, TaskParameter &param)
+{
+	if (location == NULL) return;
+	MbedJSONValue message;
+//	std::string altitude;
+//	std::string latitude;
+//	std::string longitude;
+	std::string serialized_message;
+	time_t loc_time = location->getGNSSTime();
+	char utc_time[24];
+	strftime(utc_time, 24, "%a, %b %d, %Y %H:%M:%S", localtime(&loc_time));
+	message["type"]="STATUS";
+	char value[20];
+	sprintf(value, "%.1f", location->getGNSSAltitude());
+	message["gnss"]["altitude"] = value;
+	sprintf(value, "%.3f", location->getGNSSLatitude());
+	message["gnss"]["latitude"] = value;
+	sprintf(value, "%.3f", location->getGNSSLongitude());
+	message["gnss"]["longitude"] = value;
+	message["utctime"]= utc_time;
+	serialized_message = message.serialize();
+	param.conn_m->sendDeviceToSystemMessage(serialized_message, MAX_ACCEPTABLE_CONNECT_DELAY);
+}
+
+void checkConfig(std::string &message, TaskParameter &param)
+{
+	int period;
+	MbedJSONValue json_message;
+	if (parse(json_message, message.c_str()).length()==0) {
+		std::string type = json_message["Type"].get<std::string>();
+		if (type.compare("CONFIG")==0){
+			if (json_message.hasMember((char*)"GNSS_PERIOD")) {
+				period = json_message["GNSS_PERIOD"].get<int>();
+				if (period >10 && period < 3600) {
+					gnss_period_in_sec = period;
+					printf("APP: The GPS tracking period is set to %d seconds\r\n", period);
+				} else {
+					printf("APP: Out of range value sent for the GPS tracking period.\r\n");
+				}
+			}
+			if (json_message.hasMember((char*)"CONNECT_PERIOD")) {
+				period = json_message["CONNECT_PERIOD"].get<int>();
+				if (period > 360 && period < 86400) {
+					connect_period_in_sec = period;
+					printf("APP: The IoT hub connect period is set to %d seconds\r\n", period);
+				} else {
+					printf("APP: Out of range value sent for the IoT hub connect period.\r\n");
+				}
+
+			}
+
+		}
+	}
+}
 
 void main_task(){
     GNSSLoc current_location;
-    latest_connect_time = time(NULL);
+    gnss_period_in_sec = GNSS_PERIOD_IN_SECONDS;
+    connect_period_in_sec = CONNECT_PERIOD_IN_SECONDS;
     while(1) {
         while(!gnss_timeout) {
             sleep();
         }
-        if (loc_m.tryGetGNSSLocation(current_location, 3)) {
-            log_m.logNewLocation(current_location);
-            app_m.processLocation(current_location);
-            if (time(NULL) - latest_connect_time > CONNECT_PERIOD_IN_SECONDS) {
-                if (conn_m.sendAllMessages(&log_m, MAX_ACCEPTABLE_CONNECT_DELAY)) {
-                    latest_connect_time = time(NULL);
-                    if (conn_m.checkSystemToDeviceMessage(system_message)) app_m.processSystemToDeviceMessage(system_message);
-                }
-            }
-        } else {
-            log_m.logLocationError();
-            if (time(NULL) - latest_connect_time > CONNECT_PERIOD_IN_SECONDS) {
-                if (conn_m.getSystemToDeviceMessage(system_message, MAX_ACCEPTABLE_CONNECT_DELAY)){
-                    latest_connect_time = time(NULL);
-                    app_m.processSystemToDeviceMessage(system_message);
-                } else {
-                    log_m.logConnectionError();
-                };
-            }
-        };
-        target_gnss_timeout = time(NULL) + GNSS_PERIOD_IN_SECONDS;
+		if (loc_m.tryGetGNSSLocation(current_location, 3)) {
+			log_m.logNewLocation(current_location);
+            wait(0.2);
+			app_m.processLocation(&current_location, locationProcess);
+			if (time(NULL) - latest_connect_time > connect_period_in_sec) {
+				if (conn_m.getSystemToDeviceMessage(system_message, MAX_ACCEPTABLE_CONNECT_DELAY)) {
+					latest_connect_time = time(NULL);
+					if (conn_m.checkSystemToDeviceMessage(system_message)) app_m.processSystemToDeviceMessage(system_message, checkConfig);
+				}
+			}
+		} else {
+			log_m.logLocationError();
+			if (time(NULL) - latest_connect_time > connect_period_in_sec) {
+				if (conn_m.getSystemToDeviceMessage(system_message, MAX_ACCEPTABLE_CONNECT_DELAY)){
+					latest_connect_time = time(NULL);
+					app_m.processSystemToDeviceMessage(system_message, checkConfig);
+				} else {
+					log_m.logConnectionError();
+				}
+			}
+		}
+		now = time(NULL);
+        target_gnss_timeout = now + gnss_period_in_sec;
         gnss_timeout = false;
     }
 }
@@ -65,24 +140,35 @@ void main_task(){
 
 void checkTimeouts()
 {
-    time_t now = time(NULL);
+	now += 30;
     if (now >= target_gnss_timeout) gnss_timeout = true;
 }
 
+void checkAppInitialize(std::string &message, TaskParameter &param)
+{
+	if (message.compare("OK")==0) {
+		initialized = true;
+		printf("APP: received OK. Application starts tracking.\r\n");
+	}
+
+}
+
 void app_run(void) {
-    bool initialized = false;
+    initialized = false;
     bg96.doDebug(MBED_CONF_BG96_LIBRARY_BG96_DEBUG_SETTING);
     while(!initialized) { 
+        std::string msg = "READY";
         if (conn_m.getSystemToDeviceMessage(system_message, MAX_ACCEPTABLE_CONNECT_DELAY)) {
             latest_connect_time = time(NULL);
-            app_m.processSystemToDeviceMessage(system_message);
-            initialized = true;
+            app_m.processSystemToDeviceMessage(system_message, checkAppInitialize);
         } else {
             log_m.logConnectionError();
         }
-        wait(30);
+        if (!initialized) wait(30);
     }
-    target_gnss_timeout = time(NULL) + GNSS_PERIOD_IN_SECONDS;
+	now = time(NULL);
+    latest_connect_time = now;
+    target_gnss_timeout = now + GNSS_PERIOD_IN_SECONDS;
     halfminuteticker.attach(&checkTimeouts, 30);
     main_task();
 }

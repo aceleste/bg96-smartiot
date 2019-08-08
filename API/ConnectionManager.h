@@ -21,6 +21,7 @@ public:
 
     bool sendDeviceToSystemMessage(std::string &device_to_system_message, int timeout);
     bool getSystemToDeviceMessage(std::string &system_message, int timeout);
+    void trackSystemToDeviceMessages();
     void getRSSI(double &rssi);
     bool tryGetSystemToDeviceMessage(std::string &system_message, int tries, int timeout);
     bool trySendDeviceToSystemMessage(std::string &device_to_system_message);
@@ -31,7 +32,7 @@ public:
     void publish(void);
     void publish(std::string &msg);
     void disconnect(void);
-    void newSystemMessage(char * msg);
+    void newSystemMessage(char * msg, size_t len);
     bool sendAllMessages(LogManager *log_m, int timeout);
     LogManager * getLogManager(){ return _log_m;};
 
@@ -45,7 +46,6 @@ private:
     BG96Interface *_bg96;
     BG96MQTTClient * _mqtt;
     LogManager *_log_m;
-    bool active;
     unsigned char generated_sig[80];
     char username[256]={0};
     char clientid[80] = {0};
@@ -54,7 +54,7 @@ private:
     std::string _device_message;
     bool _msg_received;
     bool _msg_sent;
-    Thread _connect_thread;
+//    Thread *_connect_thread;
     Mutex _connect_mutex;
     CONN_STATE _conn_state;
     double _rssi;
