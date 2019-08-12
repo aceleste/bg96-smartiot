@@ -21,10 +21,19 @@
 #include "API/LocationManager.h"
 #include "API/LogManager.h"
 #include "LowPowerTicker.h"
-#include "MbedJSONValue.h"
+#include "MbedJSONValue/MbedJSONValue.h"
+#include "jsmn/jsmn.h"
 
 #define CONNECT_PERIOD_IN_SECONDS 120
 #define GNSS_PERIOD_IN_SECONDS 60
+
+#if !defined(MAX_ACCEPTABLE_CONNECT_DELAY)
+#define MAX_ACCEPTABLE_CONNECT_DELAY 120
+#endif 
+
+#if !defined(MBED_CONF_BG96_LIBRARY_BG96_DEBUG_SETTING)
+#define MBED_CONF_BG96_LIBRARY_BG96_DEBUG_SETTING false
+#endif
 
 bool gnss_timeout;
 time_t now;
@@ -37,7 +46,6 @@ time_t target_gnss_timeout;
 
 LowPowerTicker halfminuteticker;
 static Mutex bg96mutex;
-static Mutex appmutex;
 static BG96Interface bg96;
 static ConnectionManager conn_m(&bg96, &bg96mutex);
 static LocationManager loc_m(&bg96, &bg96mutex);
@@ -49,9 +57,18 @@ static bool initialized;
 static int gnss_period_in_sec;
 static int connect_period_in_sec;
 
-void locationProcess(GNSSLoc *location, TaskParameter &param)
+static int jsoneq(const char *json, jsmntok_t *tok, const char *s) {
+  if (tok->type == JSMN_STRING && (int)strlen(s) == tok->end - tok->start &&
+      strncmp(json + tok->start, s, tok->end - tok->start) == 0) {
+    return 0;
+  }
+  return -1;
+}
+
+void locationProcess(GNSSLoc *location, AppManager *app_manager)
 {
-	if (location == NULL) return;
+	if (app_manager == NULL) return;
+ 	if (location == NULL) return;
 	MbedJSONValue message;
 //	std::string altitude;
 //	std::string latitude;
@@ -70,7 +87,7 @@ void locationProcess(GNSSLoc *location, TaskParameter &param)
 	message["gnss"]["longitude"] = value;
 	message["utctime"]= utc_time;
 	serialized_message = message.serialize();
-	param.conn_m->sendDeviceToSystemMessage(serialized_message, MAX_ACCEPTABLE_CONNECT_DELAY);
+	app_manager->sendDeviceToSystemMessage(serialized_message);
 }
 
 void recoverQuotes(std::string &message) {
@@ -87,45 +104,61 @@ void recoverQuotes(std::string &message) {
     }
 }
 
-void checkConfig(std::string &message, TaskParameter &param)
+void checkConfig(std::string &message, AppManager *app_manager)
 {
-	char json_buf[1458];
-	int period;
-	MbedJSONValue json_message;
-    if (message.front() != '{') {
+	char json_buf[1459] = {0};
+	char valuebuf[16] = {0};
+	int i;
+  	int r;
+	int value;
+	char *pEnd;
+  	jsmn_parser p;
+  	jsmntok_t t[16]; /* We expect no more than 10 tokens */
+	jsmn_init(&p);
+
+	if (message.front() != '{') {
         return; // we only expect json data
     } else {
         recoverQuotes(message);
     }
+	printf("Received the system to device message %s\r\n", message.c_str());
     strcpy(json_buf, message.c_str());
-    std::string err = parse(json_message, json_buf);
-	if (err.empty()) {
-		std::string type = json_message["Type"].get<std::string>();
-		if (type.compare("CONFIG")==0){
-			if (json_message.hasMember((char*)"GNSS_PERIOD")) {
-				period = json_message["GNSS_PERIOD"].get<int>();
-				if (period >10 && period < 3600) {
-                    appmutex.lock();
-					gnss_period_in_sec = period;
-                    appmutex.unlock();
-					printf("APP: The GPS tracking period is set to %d seconds\r\n", period);
-				} else {
-					printf("APP: Out of range value sent for the GPS tracking period.\r\n");
-				}
+	r = jsmn_parse(&p, json_buf, strlen(json_buf), t, sizeof(t) / sizeof(t[0]));
+	if (r < 0) {
+    	printf("Failed to parse JSON: %d\n", r);
+    	return;
+  	}
+	/* Assume the top-level element is an object */
+  	if (r < 1 || t[0].type != JSMN_OBJECT) {
+    	printf("Error: Message badly formed. Correct JSON object expected.\n");
+    	return;
+  	}
+	
+	for (i = 1; i < r; i++) {
+		if (jsoneq(json_buf, &t[i], "Type") == 0) { // Key is Type
+			char type[8];
+			memcpy(type, json_buf + t[i+1].start, strlen("CONFIG")+1);
+			if (strcmp(type, "CONFIG") == 0) {
+				printf("Received a message of type CONFIG\r\n");
 			}
-			if (json_message.hasMember((char*)"CONNECT_PERIOD")) {
-				period = json_message["CONNECT_PERIOD"].get<int>();
-				if (period > 360 && period < 86400) {
-                    appmutex.lock();
-					connect_period_in_sec = period;
-                    appmutex.unlock();
-					printf("APP: The IoT hub connect period is set to %d seconds\r\n", period);
-				} else {
-					printf("APP: Out of range value sent for the IoT hub connect period.\r\n");
-				}
-
+		} else if (jsoneq(json_buf, &t[i], "GNSS_PERIOD") == 0) { // Key is GNSS_PERIOD
+			memcpy(valuebuf, json_buf+t[i+1].start, t[i+1].end - t[i+1].start);
+			value = strtol(valuebuf, &pEnd, 10);
+			if (value > 10 && value <3600) {
+				printf("APP: Now setting GNSS sampling period to %d\r\n", value);
+				gnss_period_in_sec = value;
+			} else {
+				printf("APP: Provided GNSS sampling period %d is out of range.\r\n", value);
 			}
-
+		} else if (jsoneq(json_buf, &t[i], "CONNECT_PERIOD") == 0) { // Key is CONNECT_PERIOD
+			memcpy(valuebuf, json_buf+t[i+1].start, t[i+1].end - t[i+1].start);
+			value = strtol(valuebuf, &pEnd, 10);
+			if (value > 360 && value < 86400) {
+				printf("APP: Now setting the connect period to %d\r\n", value);
+				connect_period_in_sec = value;
+			} else {
+				printf("APP: Out of range value %d sent for the IoT hub connect period.\r\n", value);
+			}
 		}
 	}
 }
@@ -145,27 +178,28 @@ void main_task(){
             sleep();
         }
         halfminuteticker.detach();
-		if (loc_m.tryGetGNSSLocation(current_location, 3)) {
-			log_m.logNewLocation(current_location);
+		if (app_m.getLocation(current_location)) {
+			app_m.logLocation(current_location);
             wait(0.2);
 			app_m.processLocation(&current_location, locationProcess);
 			if (time(NULL) - latest_connect_time > connect_period_in_sec) {
-				if (conn_m.getSystemToDeviceMessage(system_message, MAX_ACCEPTABLE_CONNECT_DELAY)) {
+				if (app_m.getSystemToDeviceMessage(system_message, MAX_ACCEPTABLE_CONNECT_DELAY)) {
 					latest_connect_time = time(NULL);
-					if (conn_m.checkSystemToDeviceMessage(system_message)) app_m.processSystemToDeviceMessage(system_message, checkConfig);
+					app_m.processSystemToDeviceMessage(system_message, checkConfig);
 				}
 			}
 		} else {
-			log_m.logLocationError();
+			app_m.logLocationError();
 			if (time(NULL) - latest_connect_time > connect_period_in_sec) {
-				if (conn_m.getSystemToDeviceMessage(system_message, MAX_ACCEPTABLE_CONNECT_DELAY)){
+				if (app_m.getSystemToDeviceMessage(system_message, MAX_ACCEPTABLE_CONNECT_DELAY)){
 					latest_connect_time = time(NULL);
 					app_m.processSystemToDeviceMessage(system_message, checkConfig);
 				} else {
-					log_m.logConnectionError();
+					app_m.logConnectionError();
 				}
 			}
 		}
+		wait(1);
 		now = time(NULL);
         target_gnss_timeout = now + gnss_period_in_sec;
         gnss_timeout = false;
@@ -173,13 +207,12 @@ void main_task(){
     }
 }
 
-void checkAppInitialize(std::string &message, TaskParameter &param)
+void checkAppInitialize(std::string &message, AppManager *app_m)
 {
 	if (message.compare("OK")==0) {
 		initialized = true;
 		printf("APP: received OK. Application starts tracking.\r\n");
 	}
-
 }
 
 void app_run(void) {
@@ -199,11 +232,11 @@ void app_run(void) {
 
     bg96.doDebug(MBED_CONF_BG96_LIBRARY_BG96_DEBUG_SETTING);
     while(!initialized) { 
-        if (conn_m.getSystemToDeviceMessage(system_message, MAX_ACCEPTABLE_CONNECT_DELAY)) {
+        if (app_m.getSystemToDeviceMessage(system_message, MAX_ACCEPTABLE_CONNECT_DELAY)) {
             latest_connect_time = time(NULL);
             app_m.processSystemToDeviceMessage(system_message, checkAppInitialize);
         } else {
-            log_m.logConnectionError();
+            app_m.logConnectionError();
         }
         if (!initialized) wait(30);
     }

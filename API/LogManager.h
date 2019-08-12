@@ -34,6 +34,9 @@ public:
     void stopDeviceSystemDumpSession(FILE_HANDLE &fh);
     bool getNextDeviceToSystemMessage(FILE_HANDLE &fh, std::string &dts_message);
     bool flushDeviceToSystemFile(FILE_HANDLE &fh);
+//    bool startFileDumpSession(FILE_HANDLE &fh);
+//    bool getNextLineFromFile(FILE_HANDLE &fh);
+//    bool stopFileDumpSession(FILE_HANDLE &fh);
 private:
     bool append(std::string filename, void *data, size_t length, bool initialize, bool powerOff);
     Mutex           * _log_m_mutex;

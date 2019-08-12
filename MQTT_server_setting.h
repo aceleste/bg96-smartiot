@@ -3,15 +3,6 @@
 
 const int AZURE_IOTHUB_SAS_TOKEN_DEFAULT_EXPIRY_TIME = 3600;
 
-// const char* DEVICE_ID = "Test-Device-1";
-// const char* DEVICE_KEY = "YQOz+pLx0VIN5H/84HCEdFs+hyComVUpn3ggzmY6eRc=";
-
-
-//const char* SAS_TOKEN = "SharedAccessSignature sr=BTL-IOT-Hub.azure-devices.net%%2Fdevices%%2FTest-Device-1&sig=fbXuNNuWrr7B1AKQPDbKAqF%%2FUhLW4miV4%%2Fks5f5DZWQ%%3D&se=1546975302";
-//const char* SAS_TOKEN = "SharedAccessSignature sr=BTL-IOT-Hub.azure-devices.net%%2Fdevices%%2FTest-Device-1&sig=Wne3BHnFf0QyKmpzOfI0%%2Be%%2FqUrPp9ohjFm2lEhSRadM%%3D&se=1548194647";
-//const char* SAS_TOKEN = "SharedAccessSignature sr=BTL-IOT-Hub.azure-devices.net%%2Fdevices%%2FTest-Device-1&sig=TpR3zvMdoXeOD5FgcK7MVPH5wb0%%2BSM9d7szApkjjRJc%%3D&se=1548783935";
-//const char* SAS_TOKEN = "SharedAccessSignature sr=BTL-IOT-Hub.azure-devices.net%%2Fdevices%%2FTest-Device-1&sig=7nmpoO0xtkXROT%%2BMdPBVwBMO8t%%2BR2Y8TXMGjTOE6mvk%%3D&se=1548922883";
-
 const char* MQTT_SERVER_HOST_NAME = "UK-Test-Hub.azure-devices.net";
 
 const int MQTT_SERVER_PORT = 8883;
