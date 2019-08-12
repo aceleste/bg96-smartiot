@@ -23,6 +23,7 @@
 #include "LowPowerTicker.h"
 #include "MbedJSONValue/MbedJSONValue.h"
 #include "jsmn/jsmn.h"
+#include "Watchdog/Watchdog.h"
 
 #define CONNECT_PERIOD_IN_SECONDS 120
 #define GNSS_PERIOD_IN_SECONDS 60
@@ -43,6 +44,8 @@ std::string device_to_system_message;
 
 time_t latest_connect_time;
 time_t target_gnss_timeout;
+
+Watchdog wd;
 
 LowPowerTicker halfminuteticker;
 static Mutex bg96mutex;
@@ -166,6 +169,7 @@ void checkConfig(std::string &message, AppManager *app_manager)
 void checkTimeouts()
 {
 	now += 30;
+	wd.Service();
     if (now >= target_gnss_timeout) gnss_timeout = true;
 }
 
@@ -216,7 +220,18 @@ void checkAppInitialize(std::string &message, AppManager *app_m)
 }
 
 void app_run(void) {
-    initialized = false;
+	if (wd.WatchdogCausedReset()) {
+		time_t now = time(NULL);
+		char * timestr = ctime(&now);
+		std::sting error = timestr;
+		error += ": WATCHDOG RESET";
+		app_m.logError(error);
+		initialized = true;
+	} else {
+		wd.Configure(60);
+    	initialized = false;
+	}
+
     /*printf("First test json parser\r\n");
     std::string json_string = "{\"my_array\": [\"demo_string\", 10], \"my_boolean\": true}";
     char json_buf[80];

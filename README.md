@@ -21,3 +21,5 @@ The types of messages this particular application understands are special json m
 
 The IoT Hub server domain can be configured in the file [_MQTT_server_setting.h_](./MQTT_server_setting.h). 
 The device ID and Secret Key can be configured in the file [_MQTTClient_Settings.h_](./MQTTClient_Settings.h).
+
+The APN/username/password associated with the SIM card you use can be configured in the file [_mbed_config.h_](./mbed_config.h).
