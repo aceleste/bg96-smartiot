@@ -36,10 +36,12 @@ time_t latest_connect_time;
 time_t target_gnss_timeout;
 
 LowPowerTicker halfminuteticker;
+static Mutex bg96mutex;
+static Mutex appmutex;
 static BG96Interface bg96;
-static ConnectionManager conn_m(&bg96);
-static LocationManager loc_m(&bg96);
-static LogManager log_m(&bg96);
+static ConnectionManager conn_m(&bg96, &bg96mutex);
+static LocationManager loc_m(&bg96, &bg96mutex);
+static LogManager log_m(&bg96, &bg96mutex);
 static AppManager app_m(&conn_m,
                  &loc_m,
                  &log_m);
@@ -71,17 +73,41 @@ void locationProcess(GNSSLoc *location, TaskParameter &param)
 	param.conn_m->sendDeviceToSystemMessage(serialized_message, MAX_ACCEPTABLE_CONNECT_DELAY);
 }
 
+void recoverQuotes(std::string &message) {
+    for (auto it=message.begin(); it!=message.end();++it) {
+        if (*it == '#') {
+            it++;
+            if (*it == '#') {
+                *it = ' ';
+            } else {
+                it--;
+                *it = '"';
+            }
+        }
+    }
+}
+
 void checkConfig(std::string &message, TaskParameter &param)
 {
+	char json_buf[1458];
 	int period;
 	MbedJSONValue json_message;
-	if (parse(json_message, message.c_str()).length()==0) {
+    if (message.front() != '{') {
+        return; // we only expect json data
+    } else {
+        recoverQuotes(message);
+    }
+    strcpy(json_buf, message.c_str());
+    std::string err = parse(json_message, json_buf);
+	if (err.empty()) {
 		std::string type = json_message["Type"].get<std::string>();
 		if (type.compare("CONFIG")==0){
 			if (json_message.hasMember((char*)"GNSS_PERIOD")) {
 				period = json_message["GNSS_PERIOD"].get<int>();
 				if (period >10 && period < 3600) {
+                    appmutex.lock();
 					gnss_period_in_sec = period;
+                    appmutex.unlock();
 					printf("APP: The GPS tracking period is set to %d seconds\r\n", period);
 				} else {
 					printf("APP: Out of range value sent for the GPS tracking period.\r\n");
@@ -90,7 +116,9 @@ void checkConfig(std::string &message, TaskParameter &param)
 			if (json_message.hasMember((char*)"CONNECT_PERIOD")) {
 				period = json_message["CONNECT_PERIOD"].get<int>();
 				if (period > 360 && period < 86400) {
+                    appmutex.lock();
 					connect_period_in_sec = period;
+                    appmutex.unlock();
 					printf("APP: The IoT hub connect period is set to %d seconds\r\n", period);
 				} else {
 					printf("APP: Out of range value sent for the IoT hub connect period.\r\n");
@@ -102,6 +130,12 @@ void checkConfig(std::string &message, TaskParameter &param)
 	}
 }
 
+void checkTimeouts()
+{
+	now += 30;
+    if (now >= target_gnss_timeout) gnss_timeout = true;
+}
+
 void main_task(){
     GNSSLoc current_location;
     gnss_period_in_sec = GNSS_PERIOD_IN_SECONDS;
@@ -110,6 +144,7 @@ void main_task(){
         while(!gnss_timeout) {
             sleep();
         }
+        halfminuteticker.detach();
 		if (loc_m.tryGetGNSSLocation(current_location, 3)) {
 			log_m.logNewLocation(current_location);
             wait(0.2);
@@ -134,14 +169,8 @@ void main_task(){
 		now = time(NULL);
         target_gnss_timeout = now + gnss_period_in_sec;
         gnss_timeout = false;
+        halfminuteticker.attach(&checkTimeouts, 30);
     }
-}
-
-
-void checkTimeouts()
-{
-	now += 30;
-    if (now >= target_gnss_timeout) gnss_timeout = true;
 }
 
 void checkAppInitialize(std::string &message, TaskParameter &param)
@@ -155,9 +184,21 @@ void checkAppInitialize(std::string &message, TaskParameter &param)
 
 void app_run(void) {
     initialized = false;
+    /*printf("First test json parser\r\n");
+    std::string json_string = "{\"my_array\": [\"demo_string\", 10], \"my_boolean\": true}";
+    char json_buf[80];
+    strcpy(json_buf, json_string.c_str());
+    MbedJSONValue json_object;
+    std::string err = parse(json_object, json_buf);
+    if (err.empty()) {
+    	printf("Parsing is successful.\r\n");
+    	wait(3);
+    } else {
+    	exit(-1);
+    }*/
+
     bg96.doDebug(MBED_CONF_BG96_LIBRARY_BG96_DEBUG_SETTING);
     while(!initialized) { 
-        std::string msg = "READY";
         if (conn_m.getSystemToDeviceMessage(system_message, MAX_ACCEPTABLE_CONNECT_DELAY)) {
             latest_connect_time = time(NULL);
             app_m.processSystemToDeviceMessage(system_message, checkAppInitialize);

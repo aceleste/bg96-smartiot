@@ -8,7 +8,7 @@
 class LocationManager
 {
 public:
-    LocationManager(BG96Interface *bg96);
+    LocationManager(BG96Interface *bg96, Mutex * bg96mutex);
     ~LocationManager();
     bool tryGetGNSSLocation(GNSSLoc &current_location, int tries);
     void getCurrentLatitude(double &latitude);
@@ -19,6 +19,7 @@ private:
     Timer _timeout;
     BG96Interface *_bg96;
     GNSSLoc _current_loc;
+    Mutex * _loc_m_mutex;
 };
 
 #endif //__LOCATION_MANAGER_H__

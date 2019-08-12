@@ -16,7 +16,7 @@ typedef enum {
 class ConnectionManager
 {
 public:
-    ConnectionManager(BG96Interface *bg96);
+    ConnectionManager(BG96Interface *bg96, Mutex * bg96mutex);
     ~ConnectionManager();
 
     bool sendDeviceToSystemMessage(std::string &device_to_system_message, int timeout);
@@ -55,7 +55,7 @@ private:
     bool _msg_received;
     bool _msg_sent;
 //    Thread *_connect_thread;
-    Mutex _connect_mutex;
+    Mutex * _connect_mutex;
     CONN_STATE _conn_state;
     double _rssi;
 };

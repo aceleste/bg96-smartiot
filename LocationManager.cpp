@@ -3,10 +3,9 @@
 #include "BG96Interface.h"
 #include <string.h>
 
-LocationManager::LocationManager(BG96Interface *bg96, Mutex * bg96mutex)
+LocationManager::LocationManager(BG96Interface *bg96)
 {
     _bg96 = bg96;
-    _loc_m_mutex = bg96mutex;
 }
 
 LocationManager::~LocationManager()
@@ -16,7 +15,6 @@ LocationManager::~LocationManager()
 bool LocationManager::tryGetGNSSLocation(GNSSLoc &current_location, int tries)
 {
     bool done;
-    _loc_m_mutex->lock();
     _bg96->initializeGNSS();
     _bg96->disallowPowerOff();
     for (int i = 0; i < tries; i++) {
@@ -25,18 +23,12 @@ bool LocationManager::tryGetGNSSLocation(GNSSLoc &current_location, int tries)
     _current_loc = current_location;
     _bg96->allowPowerOff();
     _bg96->powerDown();
-    wait(1);
-    _loc_m_mutex->unlock();
     return done;
 }
 
 bool LocationManager::getGNSSLocation(GNSSLoc &current_location)
 {
-    bool rc;
-    _loc_m_mutex->lock();
-    rc = _bg96->getGNSSLocation(current_location);
-    _loc_m_mutex->unlock();
-    return rc;
+    return _bg96->getGNSSLocation(current_location);
 }
 
 void LocationManager::getCurrentLatitude(double &latitude)

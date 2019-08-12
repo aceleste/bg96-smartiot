@@ -22,7 +22,7 @@
 class LogManager
 {
 public:
-    LogManager(BG96Interface *bg96);
+    LogManager(BG96Interface *bg96, Mutex *bg96mutex);
     ~LogManager(){};
     bool logAnError(std::string error);
     bool logNewLocation(GNSSLoc &loc);
@@ -36,13 +36,13 @@ public:
     bool flushDeviceToSystemFile(FILE_HANDLE &fh);
 private:
     bool append(std::string filename, void *data, size_t length, bool initialize, bool powerOff);
-    Mutex _log_m_mutex;
-    BG96Interface *_bg96;
-    size_t _dts_file_offset;
-    FILE_HANDLE _dts_file_handle;
-    FILE_HANDLE _error_file_handle;
-    FILE_HANDLE _location_events_file_handle;
-    FILE_HANDLE _events_file_handle;
+    Mutex           * _log_m_mutex;
+    BG96Interface   * _bg96;
+    size_t          _dts_file_offset;
+    FILE_HANDLE     _dts_file_handle;
+    FILE_HANDLE     _error_file_handle;
+    FILE_HANDLE     _location_events_file_handle;
+    FILE_HANDLE     _events_file_handle;
 };
 
 #endif //__LOG_MANAGER_H__
