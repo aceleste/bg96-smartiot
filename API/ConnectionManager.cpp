@@ -224,6 +224,7 @@ void ConnectionManager::newSystemMessage(char *msg, size_t len)
     _connect_mutex->lock();
     _system_message = msg;
     _msg_received = true;
+    _mqtt->stopRunning();
     _connect_mutex->unlock();
 }
 
@@ -459,14 +460,17 @@ bool ConnectionManager::getSystemToDeviceMessage(std::string &system_message, in
     s1.start(callback(get_system_to_device,this));
    // _connect_thread.start(callback(get_system_to_device,this));
     while(!_timeout_triggered) { if (_msg_received) break;};
-    printf("ConnectionManager: Publishing BYE message.\r\n");
-    std::string msg("BYE");
-    publish(msg);
     printf("timeout triggered or message received\r\n");
+    _connect_mutex->lock();
+    _mqtt->stopRunning();
+    _connect_mutex->unlock();
     s1.terminate();
     s1.join();
     //_connect_thread.terminate();
     _timeout.detach();
+    printf("ConnectionManager: Publishing BYE message.\r\n");
+    std::string msg("BYE");
+    publish(msg);
     _connect_mutex->lock();
     _bg96->allowPowerOff();
     _connect_mutex->unlock();

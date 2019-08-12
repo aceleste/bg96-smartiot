@@ -50,16 +50,18 @@ public:
     bool                logLocationError();
     bool                logError(std::string error);
     bool                logLocation(GNSSLoc &location);
+
+    void                setQueueMessageStatus(bool status);
+    void                setConnectionStatus(bool status);
+    void                setLogStatus(bool status);
+    void				setLocationStatus(bool status);
 //    bool            dumpErrorFile();
 //    bool            dumpLocationFile();
 //    bool            dumpFile(std::string filename);
 
 
 private:
-    void                setQueueMessageStatus(bool status);
-    void                setConnectionStatus(bool status);
-    void                setLogStatus(bool status);
-    void				setLocationStatus(bool status);
+
 
     Thread              *_thread;
     Mutex               _app_mutex;
