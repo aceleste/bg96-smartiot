@@ -3,4 +3,4 @@
 	url = git@github.com:aceleste/BG96-Driver.git
 [submodule "jsmn"]
 	path = jsmn
-	url = https://github.com/zserge/jsmn.git
+	url = git@github.com:aceleste/jsmn.git
