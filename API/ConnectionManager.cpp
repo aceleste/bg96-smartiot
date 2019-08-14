@@ -79,8 +79,8 @@ ConnectionManager::~ConnectionManager()
 /* This function looks for every occurrences of the token in initial string and replaces each one by replacement */
 size_t ConnectionManager::replace_str(char * initial, char * token, char * replacement) {
     if ( initial == NULL || token == NULL || replacement == NULL ) return 0;
-    printf("SAS before replacement:\r\n");
-    printf("%s\r\n",initial);
+   debug("SAS before replacement:\r\n");
+   debug("%s\r\n",initial);
     STRING_HANDLE buffer = STRING_new();
     char * str = initial;
     char * ptr = NULL;
@@ -92,8 +92,8 @@ size_t ConnectionManager::replace_str(char * initial, char * token, char * repla
     }
     strcpy(initial,STRING_c_str(buffer));
     STRING_delete(buffer);
-    printf("SAS after replacement:\r\n");
-    printf("%s\r\n",initial);
+   debug("SAS after replacement:\r\n");
+   debug("%s\r\n",initial);
     return strlen(initial);
 }
 
@@ -121,7 +121,7 @@ int ConnectionManager::SignAuthPayload(const char* key, const char* stringToSign
     if (key == NULL || stringToSign == NULL)
     {
         LogError("Invalid parameters passed to sign function");
-        printf("Invalid parameters passed to sign function\r\n");
+       debug("Invalid parameters passed to sign function\r\n");
         result = __FAILURE__;
     }
     else
@@ -132,20 +132,20 @@ int ConnectionManager::SignAuthPayload(const char* key, const char* stringToSign
         if ((decoded_key = Base64_Decoder(key)) == NULL)
         {
             LogError("Failed decoding symmetrical key");
-            printf("Failed decoding symmetrical key\r\n");
+           debug("Failed decoding symmetrical key\r\n");
             result = __FAILURE__;
         }
         else if ((output_hash = BUFFER_new()) == NULL)
         {
             LogError("Failed allocating output hash buffer");
-            printf("Failed allocating output hash buffer\r\n");
+           debug("Failed allocating output hash buffer\r\n");
             BUFFER_delete(decoded_key);
             result = __FAILURE__;
         }
         else if (HMACSHA256_ComputeHash(BUFFER_u_char(decoded_key), BUFFER_length(decoded_key), (const unsigned char*)stringToSign, payload_len, output_hash) != HMACSHA256_OK)
         {
             LogError("Failed computing HMAC Hash");
-            printf("Failed computing HMAC Hash\r\n");
+           debug("Failed computing HMAC Hash\r\n");
             BUFFER_delete(decoded_key);
             BUFFER_delete(output_hash);
             result = __FAILURE__;
@@ -156,7 +156,7 @@ int ConnectionManager::SignAuthPayload(const char* key, const char* stringToSign
             if (*len > 80)
             {
                 LogError("Generated signature token length longer than storage buffer");
-                printf("Generated signature token length longer than storage buffer\r\n");
+               debug("Generated signature token length longer than storage buffer\r\n");
                 result = __FAILURE__;
             }
             else
@@ -182,7 +182,7 @@ size_t ConnectionManager::generate_sas_token(char *out, const char * resourceUri
     {
         /* Codes_SRS_IoTHub_Authorization_07_020: [ If any error is encountered IoTHubClient_Auth_Get_ConnString shall return NULL. ] */
         LogError("failure getting seconds from epoch");
-        printf("failure getting seconds from epoch\r\n");
+       debug("failure getting seconds from epoch\r\n");
         result = 0;
     }
     else 
@@ -191,7 +191,7 @@ size_t ConnectionManager::generate_sas_token(char *out, const char * resourceUri
         size_t expiry_time = sec_since_epoch+expiryInSeconds;
         if (size_tToString(expiry_token, sizeof(expiry_token), expiry_time) != 0) {
             LogError("Failure when creating expire token");
-            printf("Failure when creating expire token\r\n");
+           debug("Failure when creating expire token\r\n");
             result = 0;
         } else {
             unsigned char* data_value;
@@ -205,13 +205,13 @@ size_t ConnectionManager::generate_sas_token(char *out, const char * resourceUri
                 {
                     result = 0;
                     LogError("Failure constructing encoding.");
-                    printf("Failure constructing encoding.\r\n");
+                   debug("Failure constructing encoding.\r\n");
                 }
                 else if ((urlEncodedSignature = URL_Encode(signature)) == NULL)
                 {
                     result = 0;
                     LogError("Failure constructing url Signature.");
-                    printf("Failure constructing url Signature.\r\n");
+                   debug("Failure constructing url Signature.\r\n");
                 }
                 // char * buffer = (char *)malloc(25+STRING_length(encoded_uri)+1+
                 //                         5+STRING_length(urlEncodedSignature)+1+
@@ -219,11 +219,11 @@ size_t ConnectionManager::generate_sas_token(char *out, const char * resourceUri
                 //                         5+strlen(policyName))+1+8;
                 // if (buffer == NULL) {
                 //     LogError("Failure allocating the buffer for the sas_token.");
-                //     printf("Failure allocating the buffer for the sas_token.\r\n");
+                //    debug("Failure allocating the buffer for the sas_token.\r\n");
                 //     result = 0;
                 // } 
                 if (34+STRING_length(encoded_uri)+STRING_length(urlEncodedSignature)+strlen(expiry_token)+5+strlen(policyName) > BG96MQTTCLIENT_MAX_SAS_TOKEN_LENGTH-1) {
-                    printf("Error - the generated SAS token is longer than the storage buffer.\r\n");
+                   debug("Error - the generated SAS token is longer than the storage buffer.\r\n");
                     result = 0;
                 } else {
                     sprintf(out,"SharedAccessSignature sr=%s&sig=%s&se=%s", STRING_c_str(encoded_uri), 
@@ -258,13 +258,13 @@ void ConnectionManager::newSystemMessage(char *msg, size_t len)
 void system_to_device_message_handler(MQTTMessage *msg, void *param)
 {
     if (msg == NULL || param == NULL) {
-        printf("Message handler called with null pointer.\r\n");
+       debug("Message handler called with null pointer.\r\n");
         return;
     }
     ConnectionManager *conn_m = (ConnectionManager *)param;
-    // printf("Received MQTT message on topic %s\r\n", msg->topic.payload);
-    // printf("Message payload is -> \r\n");
-    // printf("%s\r\n",msg->msg.payload);
+    //debug("Received MQTT message on topic %s\r\n", msg->topic.payload);
+    //debug("Message payload is -> \r\n");
+    //debug("%s\r\n",msg->msg.payload);
     if (msg->msg.len > BG96_MQTT_CLIENT_MAX_PUBLISH_MSG_SIZE)  return;
     conn_m->newSystemMessage(msg->msg.payload, msg->msg.len);
 }
@@ -285,7 +285,7 @@ int ConnectionManager::connectToServer()
     BG96_PDP_Ctx pdp_ctx;
     pdp_ctx.pdp_id = DEFAULT_PDP; 
     pdp_ctx.apn = (const char*)DEFAULT_APN;
-    printf("APN will be set to %s\r\n",pdp_ctx.apn);
+   debug("APN will be set to %s\r\n",pdp_ctx.apn);
     char apn_username[11]={0};
     char apn_password[11]={0};
 #ifdef APN_USERNAME
@@ -298,30 +298,30 @@ int ConnectionManager::connectToServer()
     pdp_ctx.username = apn_username;
     pdp_ctx.password = apn_password;
 
-    printf("Configuring PDP context...\r\n");
+   debug("Configuring PDP context...\r\n");
     _connect_mutex->lock();
     rc = _mqtt->configure_pdp_context(&pdp_ctx);
     _connect_mutex->unlock();
     if (rc < 0) {
-        printf("Error when configuring pdp context %d.\r\n", pdp_ctx.pdp_id);
+       debug("Error when configuring pdp context %d.\r\n", pdp_ctx.pdp_id);
         return -1;
     }
-    printf("Succesfully configured pdp context %d.\r\n", pdp_ctx.pdp_id);
+   debug("Succesfully configured pdp context %d.\r\n", pdp_ctx.pdp_id);
 
-    printf("Activate PDP context...\r\n");
+   debug("Activate PDP context...\r\n");
     _connect_mutex->lock();
     rc= _bg96->connect();
     _connect_mutex->unlock();
     if (!rc){
-        printf("Error when activating the PDP context.\r\n");
+       debug("Error when activating the PDP context.\r\n");
         return -1;
     }
 
-    printf("Succesfully activated the PDP context.\r\n");
+   debug("Succesfully activated the PDP context.\r\n");
 
     
 
-    printf("Now trying to set system time...\r\n");
+   debug("Now trying to set system time...\r\n");
 
     time_t current_time;
     _connect_mutex->lock();
@@ -336,7 +336,7 @@ int ConnectionManager::connectToServer()
     current_time = time(NULL);
     strftime(buffer, 32, "%I:%M %p\n", localtime(&current_time));
 
-    printf("Time is now %s\r\n", buffer);
+   debug("Time is now %s\r\n", buffer);
 
 
     MQTTClientOptions mqtt_options = BG96MQTTClientOptions_Initializer;
@@ -344,16 +344,16 @@ int ConnectionManager::connectToServer()
     mqtt_options.cleansession   = 0;
     mqtt_options.sslenable      = 1;
 
-    printf("Configuring MQTT options...\r\n");
+   debug("Configuring MQTT options...\r\n");
     _connect_mutex->lock();
     rc = _mqtt->configure_mqtt(&mqtt_options);
     _connect_mutex->unlock();
     if (rc < 0 ) {
-        printf("Error when configuring MQTT options (%d)\r\n", rc);
+       debug("Error when configuring MQTT options (%d)\r\n", rc);
         return -1;
     }
 
-    printf("Succesfully configured MQTT options\r\n");
+   debug("Succesfully configured MQTT options\r\n");
 
     MQTTConstString cacert;
     cacert.payload=SSL_CA_PEM;
@@ -369,31 +369,31 @@ int ConnectionManager::connectToServer()
     network_ctx.hostname.payload = (const char*)MQTT_SERVER_HOST_NAME;
     network_ctx.port = MQTT_SERVER_PORT;
 
-    printf("Opening a network socket to %s:%d\r\n", network_ctx.hostname.payload, network_ctx.port);
+   debug("Opening a network socket to %s:%d\r\n", network_ctx.hostname.payload, network_ctx.port);
     _connect_mutex->lock();
     rc = _mqtt->open(&network_ctx);
     _connect_mutex->unlock();
     if (rc < 0) {
-        printf("Error opening the network socket (%d)\r\n", rc);
+       debug("Error opening the network socket (%d)\r\n", rc);
 //        tls = bg96->getBG96TLSSocket();
 //        tls->connect(network_ctx.hostname.payload, network_ctx.port);
         return -1;
     }
-    printf("Successfully opened a network socket.\r\n");
+   debug("Successfully opened a network socket.\r\n");
 
     char scope[80] = {0};
  
-    printf("Generating SAS token...\r\n");
+   debug("Generating SAS token...\r\n");
 
     sprintf(scope,"%s/devices/%s", MQTT_SERVER_HOST_NAME, DEVICE_ID);
     //STRING_HANDLE scope = STRING_construct_sprintf("%s/devices/%s", MQTT_SERVER_HOST_NAME, DEVICE_ID);
     generate_sas_token(sas_token, scope, DEVICE_KEY, NULL, AZURE_IOTHUB_SAS_TOKEN_DEFAULT_EXPIRY_TIME);
     if (sas_token == NULL){
-        printf("Error when generating SAS token.\r\n");
+       debug("Error when generating SAS token.\r\n");
         return -1;
     } 
-    printf("Generated a new SAS Token: \r\n");
-    printf("%s\r\n", sas_token);
+   debug("Generated a new SAS Token: \r\n");
+   debug("%s\r\n", sas_token);
     replace_str(sas_token, (char *)"%", (char *)"%%");
 
     strcpy(clientid, DEVICE_ID);
@@ -410,7 +410,7 @@ int ConnectionManager::connectToServer()
     connect_ctx.password.payload = sas_token;
     connect_ctx.password.len = strlen(connect_ctx.password.payload);
 
-    printf("Connecting to the IoT Hub server %s...\r\n",network_ctx.hostname.payload);
+   debug("Connecting to the IoT Hub server %s...\r\n",network_ctx.hostname.payload);
     _connect_mutex->lock();
     rc = _mqtt->connect(&connect_ctx);
         _connect_mutex->unlock();
@@ -440,16 +440,16 @@ void get_system_to_device(ConnectionManager *conn_m)
     conn_m->setConnectionStatus(TRYING_TO_CONNECT);
     if (conn_m->connectToServer()==0) {
         conn_m->setConnectionStatus(CONNECTED_TO_SERVER);
-        printf("ConnectionManager: Publishing HELLO message.\r\n");
+       debug("ConnectionManager: Publishing HELLO message.\r\n");
         std::string msg("HELLO");
         conn_m->publish(msg);
         char topictoreadfrom[128] = "devices/";
         strcat(topictoreadfrom, DEVICE_ID);
         strcat(topictoreadfrom,"/messages/devicebound/#");
         if (conn_m->subscribe(topictoreadfrom, 0, system_to_device_message_handler) < 0) {
-            printf("Error while subcribing to topic %s.\r\n", topictoreadfrom);
+           debug("Error while subcribing to topic %s.\r\n", topictoreadfrom);
         } else {
-            printf("Successfully subscribred to topic %s\r\n", topictoreadfrom);
+           debug("Successfully subscribred to topic %s\r\n", topictoreadfrom);
             conn_m->trackSystemToDeviceMessages();
         }
     } else {
@@ -471,7 +471,7 @@ void ConnectionManager::disconnect(void)
 bool ConnectionManager::getSystemToDeviceMessage(std::string &system_message, int timeout)
 {
     int rc;
-    printf("trying to get system to device message.\r\n");
+   debug("trying to get system to device message.\r\n");
     Thread s1;
     _msg_received = false;
     _connect_mutex->lock();
@@ -487,7 +487,7 @@ bool ConnectionManager::getSystemToDeviceMessage(std::string &system_message, in
     s1.start(callback(get_system_to_device,this));
    // _connect_thread.start(callback(get_system_to_device,this));
     while(!_timeout_triggered) { if (_msg_received) break;};
-    printf("timeout triggered or message received\r\n");
+   debug("timeout triggered or message received\r\n");
     _connect_mutex->lock();
     _mqtt->stopRunning();
     _connect_mutex->unlock();
@@ -495,13 +495,13 @@ bool ConnectionManager::getSystemToDeviceMessage(std::string &system_message, in
     s1.join();
     //_connect_thread.terminate();
     _timeout.detach();
-    printf("ConnectionManager: Publishing BYE message.\r\n");
+   debug("ConnectionManager: Publishing BYE message.\r\n");
     std::string msg("BYE");
     publish(msg);
     _connect_mutex->lock();
     _bg96->allowPowerOff();
     _connect_mutex->unlock();
-    printf("shutting down modem\r\n");
+   debug("shutting down modem\r\n");
     disconnect();
     if (_msg_received) {
         system_message = _system_message;
@@ -578,9 +578,9 @@ void send_device_to_system(ConnectionManager *conn_m)
         strcat(topictoreadfrom, DEVICE_ID);
         strcat(topictoreadfrom,"/messages/devicebound/#");
         if (conn_m->subscribe(topictoreadfrom, 0, system_to_device_message_handler) < 0) {
-            printf("Error while subcribing to topic %s.\r\n", topictoreadfrom);
+           debug("Error while subcribing to topic %s.\r\n", topictoreadfrom);
         } else {
-            printf("Successfully subscribred to topic %s\r\n", topictoreadfrom);
+           debug("Successfully subscribred to topic %s\r\n", topictoreadfrom);
         }
         conn_m->publish();
     } else {
@@ -599,9 +599,9 @@ void send_all_device_to_system(ConnectionManager *conn_m)
         strcat(topictoreadfrom, DEVICE_ID);
         strcat(topictoreadfrom,"/messages/devicebound/#");
         if (conn_m->subscribe(topictoreadfrom, 0, system_to_device_message_handler) < 0) {
-            printf("Error while subcribing to topic %s.\r\n", topictoreadfrom);
+           debug("Error while subcribing to topic %s.\r\n", topictoreadfrom);
         } else {
-            printf("Successfully subscribred to topic %s\r\n", topictoreadfrom);
+           debug("Successfully subscribred to topic %s\r\n", topictoreadfrom);
         }
         conn_m->trackSystemToDeviceMessages();
         LogManager *log_m = conn_m->getLogManager();

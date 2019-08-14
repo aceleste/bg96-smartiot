@@ -25,7 +25,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-
+#ifndef __LOG_MANAGER_H__
 #define __LOG_MANAGER_H__
 #include "BG96Interface.h"
 #include "FSInterface.h"

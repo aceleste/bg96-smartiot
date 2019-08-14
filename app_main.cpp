@@ -1,5 +1,5 @@
-/*
- * This example application demonstrates using the API for GNSS location and IoT Hub messaging services
+/**
+ * @brief This example application demonstrates using the API for GNSS location and IoT Hub messaging services
  * It will wait until a first cloud to device message with "OK" as data is sent, then it will start
  * getting the GNSS location and queuing this time-stamped information with the following format:
  * {"type": "STATUS", "utctime": "Fri  2/08/2019 16:08:02 UTC+2", "gnss": {"altitude": "645.4", "latitude": "-21.245970", "longitude": "55.516857"}}
@@ -11,8 +11,31 @@
  * For example: {"type": "CONFIG", "gnss_period": 200} or {"type": "CONFIG", "connect_period": 3600} or
  * {"type": "CONFIG", "gnss_period": 360, "connect_period": 3600}
  * which allows remote control on the periods of gnss tracking and server connection.
+ * 
+ * @version 0.1
+ * @date 2019-08-13
+ * 
+ * @copyright Copyright (c) 2019 Polaris Innovation
  *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  */
+
 #include "mbed.h"
 #include "app_main.h"
 #include <string>
@@ -245,7 +268,7 @@ void app_run(void) {
     	exit(-1);
     }*/
 
-    bg96.doDebug(MBED_CONF_BG96_LIBRARY_BG96_DEBUG_SETTING);
+    bg96.doDebug(MBED_CONF_BG96_LIBRARY_BG96_DEBUG_SETTING); //MBED_CONF_BG96_LIBRARY_BG96_DEBUG_SETTING
     while(!initialized) { 
         if (app_m.getSystemToDeviceMessage(system_message, MAX_ACCEPTABLE_CONNECT_DELAY)) {
             latest_connect_time = time(NULL);

@@ -26,6 +26,7 @@
  * SOFTWARE.
  */
 
+#include "LocationManager.h"
 #include "GNSSLoc.h"
 #include "BG96Interface.h"
 #include <string.h>

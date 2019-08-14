@@ -25,7 +25,7 @@
 #define CLOCK_SOURCE                                                          USE_PLL_MSI                                                                                      // set by target:NUCLEO_L496ZG
 #define MBED_CONF_APP_MAIN_STACK_SIZE                                         3192                                                                                             // set by application
 #define MBED_CONF_APP_NETWORK_INTERFACE                                       ETHERNET                                                                                         // set by application
-#define MBED_CONF_BG96_LIBRARY_BG96_DEBUG                                     true                                                                                             // set by library:bg96-library
+#define MBED_CONF_BG96_LIBRARY_BG96_DEBUG                                     false                                                                                             // set by library:bg96-library
 #define MBED_CONF_BG96_LIBRARY_BG96_DEBUG_SETTING                             0x84                                                                                             // set by library:bg96-library
 #define MBED_CONF_BG96_LIBRARY_BG96_GNSS_AUTOGPS                              0                                                                                                // set by library:bg96-library
 #define MBED_CONF_BG96_LIBRARY_BG96_GNSS_BEIDOUNMEATYPE                       0                                                                                                // set by library:bg96-library

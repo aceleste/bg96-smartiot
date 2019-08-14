@@ -25,7 +25,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
- */
+
 #include "AppManager.h"
 #include "LogManager.h"
 #include "ConnectionManager.h"
@@ -175,6 +175,7 @@ AppManager::~AppManager()
  */
 bool AppManager::getLocation(GNSSLoc& location)
 {
+
     _app_mutex.lock();
     loc_param.app_m = this;
     loc_param.location = &location;

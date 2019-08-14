@@ -8,6 +8,8 @@
  * @copyright Copyright (c) 2019 Polaris Innovation 
  * 
  */
+#ifndef __APP_MANAGER_H__
+#define __APP_MANAGER_H__
 #include "mbed.h"
 #include <string>
 #include "GNSSLoc.h"
@@ -74,3 +76,5 @@ private:
     bool                _connect_result;
     bool                _log_result;
 };
+
+#endif //__APP_MANAGER_H__

@@ -25,7 +25,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-
+#include "LogManager.h"
 #include "BG96Interface.h"
 #include "AppManager.h"
 #include <string>
