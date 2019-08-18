@@ -1,6 +1,6 @@
 [submodule "BG96-Driver"]
 	path = BG96-Driver
-	url = git@github.com:aceleste/BG96-Driver.git
+	url = https://github.com/aceleste/BG96-Driver.git
 [submodule "jsmn"]
 	path = jsmn
-	url = git@github.com:aceleste/jsmn.git
+	url = https://github.com/aceleste/jsmn.git
