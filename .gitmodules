@@ -4,3 +4,7 @@
 [submodule "jsmn"]
 	path = jsmn
 	url = https://github.com/aceleste/jsmn.git
+[submodule "ntp-client"]
+	path = ntp-client
+	url = https://github.com/ARMmbed/ntp-client
+	
